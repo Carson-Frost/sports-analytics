@@ -1,0 +1,19 @@
+[project]
+name = "draft-value"
+version = "1.0.0"
+description = "What an NBA draft pick is worth, by pick number"
+requires-python = ">=3.11"
+dependencies = ["pandas>=2.2", "numpy>=1.26", "matplotlib>=3.8", "lxml>=5.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

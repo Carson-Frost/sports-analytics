@@ -1,0 +1,11 @@
+sample,method,games,rmse,z_rapm_vs_method
+2014-15 to 2024-25,home court,4431,14.739,-16.057
+2014-15 to 2024-25,team net rating,4431,13.54,-2.704
+2014-15 to 2024-25,raw plus-minus,4431,13.612,-3.626
+2014-15 to 2024-25,adjusted plus-minus,4431,21.597,-9.691
+2014-15 to 2024-25,regularized adjusted plus-minus,4431,13.379,
+2025-26,home court,411,17.902,-9.297
+2025-26,team net rating,411,15.233,0.509
+2025-26,raw plus-minus,411,15.703,-2.626
+2025-26,adjusted plus-minus,411,21.298,-7.454
+2025-26,regularized adjusted plus-minus,411,15.335,

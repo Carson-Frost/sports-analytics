@@ -1,0 +1,16 @@
+choice,outcome,chance,seconds,leader_wins_after,segments
+defend,"Miss, Defensive Rebound",0.3769,6.2646,0.9977,117
+defend,"Miss, Offensive Rebound",0.1592,6.3137,0.9704,54
+defend,Made Three,0.1519,4.6088,0.5685,45
+defend,Turnover,0.1102,3.5688,0.9925,35
+defend,"Late Miss, Time Runs Out",0.0752,9.1454,0.9966,23
+defend,Made Two,0.0672,3.2527,0.8923,22
+defend,Fouled on a Three,0.0481,5.0349,0.7621,17
+defend,Clock Runs Out,0.0046,8.9000,0.9892,1
+defend,"Missed Free Throw, Offensive Rebound",0.0043,5.0000,0.8038,1
+defend,"Free Throws, 1 of 2",0.0022,10.4000,1.0000,1
+foul,"Free Throws, 2 of 2",0.5689,1.8073,0.8778,70
+foul,"Free Throws, 1 of 2",0.2703,2.7262,0.9560,33
+foul,"Missed Free Throw, Offensive Rebound",0.1067,4.1980,0.8325,19
+foul,"Free Throws, 0 of 2",0.0483,3.1030,0.9931,7
+foul,Turnover,0.0057,3.8750,0.9647,2

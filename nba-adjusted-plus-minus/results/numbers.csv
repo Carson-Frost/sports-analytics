@@ -1,0 +1,76 @@
+name,value
+bundles_gb,1.2 GB
+seasons,12
+tuning_seasons,11
+min_minutes,"1,000"
+bootstraps,200
+games_all,"14,427"
+games_tuning,"13,197"
+games_dropped,12
+rotation_hours,"2,047"
+rotation_match,99.5%
+rotation_match_worst,98.6%
+games_season,"1,230"
+stints_season,"39,823"
+players_season,582
+qualified,279
+lambda,"2,000"
+tuning_games,"4,431"
+tuning_rmse_best,13.38
+tuning_rmse_ols,21.60
+lambda_flat_low,"1,500"
+lambda_flat_high,"3,000"
+past_rmse_home,14.74
+past_z_home,-16.1
+past_games,"4,431"
+past_rmse_team,13.54
+past_z_team,-2.7
+past_rmse_raw,13.61
+past_z_raw,-3.6
+past_rmse_apm,21.60
+past_z_apm,-9.7
+past_rmse_rapm,13.38
+test_rmse_home,17.90
+test_z_home,-9.3
+test_games,411
+test_rmse_team,15.23
+test_z_team,0.5
+test_rmse_raw,15.70
+test_z_raw,-2.6
+test_rmse_apm,21.30
+test_z_apm,-7.5
+test_rmse_rapm,15.34
+r2_raw_team,77%
+r2_rapm_team,19%
+dort_raw,+8.2
+dort_raw_rank,35
+dort_rapm,-2.2
+dort_rapm_rank,234
+dort_team_net,+10.9
+markkanen_raw,-2.3
+markkanen_raw_rank,189
+markkanen_rapm,+3.8
+markkanen_rapm_rank,22
+markkanen_team_net,-8.0
+top_raw_name,Alex Caruso
+top_raw,+18.6
+top_raw_rapm_rank,14
+first_name,Victor Wembanyama
+first_rapm,+7.6
+first_low,+2.9
+first_high,+12.3
+second_name,Shai Gilgeous-Alexander
+second_rapm,+7.2
+third_name,Kawhi Leonard
+third_rapm,+7.2
+firsts_1_name,Victor Wembanyama
+firsts_1,48
+firsts_2_name,Kawhi Leonard
+firsts_2,41
+firsts_3_name,Shai Gilgeous-Alexander
+firsts_3,34
+median_interval_width,9.2
+last_games_rmse,15.17
+last_games_z,-0.3
+last_prior_rmse,15.07
+last_prior_z,-0.7

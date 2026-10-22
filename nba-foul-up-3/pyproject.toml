@@ -1,0 +1,28 @@
+[project]
+name = "foulup3"
+version = "1.0.0"
+description = "Should an NBA team up 3 foul or defend? A possession-by-possession model of the final seconds."
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib>=3.8",
+    "nba_api>=1.4",
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "pyarrow>=14",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

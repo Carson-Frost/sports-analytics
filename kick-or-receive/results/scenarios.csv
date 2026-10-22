@@ -1,0 +1,9 @@
+rule,clock,go_for_two,receiver_win,tie,kicker_win
+sudden,Untimed,False,0.6452,0.0,0.3548
+sudden,10 Min,False,0.6165,0.0526,0.3309
+modified,Untimed,False,0.568,0.0,0.432
+modified,10 Min,False,0.5233,0.0943,0.3824
+both,Untimed,False,0.5362,0.0,0.4638
+both,Untimed,True,0.5229,0.0,0.4771
+both,10 Min,False,0.4695,0.1335,0.397
+both,10 Min,True,0.4808,0.093,0.4262

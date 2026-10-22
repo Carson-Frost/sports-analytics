@@ -1,0 +1,138 @@
+name,value,note
+seasons,6,regular seasons of play-by-play
+first_season,2020-21,
+last_season,2025-26,
+games_pulled,7230,regular season games pulled
+games,7215,games with a trip starting at 24 seconds or less
+segments,21475,segments starting with 24 seconds or less
+segments_defend,982,"segments in class down 3, defend"
+segments_foul,208,"segments in class down 3, foul"
+decisions,905,trailing team got the ball down 3
+decisions_defend,717,decisions where the leader chose defend
+observed_win_defend,92.1,"leader win %, raw"
+decisions_foul,188,decisions where the leader chose foul
+observed_win_foul,95.2,"leader win %, raw"
+decisions_foul_to_give,31,decisions where the leader chose foul to give
+observed_win_foul_to_give,87.1,"leader win %, raw"
+bonus_share,87.7,% of decisions where the leader was already in the bonus
+bonus_share_fouled,86.3,% of leader fouls (with or without free throws) made in the bonus
+foul_share,20.8,% of decisions fouled
+foul_share_0_3s,1.3,% fouled with 0 to 3 seconds left
+foul_share_3_6s,29.5,% fouled with 3 to 6 seconds left
+foul_share_6_9s,32.1,% fouled with 6 to 9 seconds left
+foul_share_9_12s,36.4,% fouled with 9 to 12 seconds left
+foul_share_12_16s,16.8,% fouled with 12 to 16 seconds left
+foul_share_16_20s,8.3,% fouled with 16 to 20 seconds left
+foul_share_20_24s,13.8,% fouled with 20 to 24 seconds left
+foul_2s,98.8,"leader win % fouling, 2 seconds left"
+defend_2s,96.2,"leader win % defending, 2 s left"
+gap_2s,2.6,"foul minus defend, points, 2 s"
+gap_low_2s,1.3,bootstrap 2.5th percentile
+gap_high_2s,4.0,bootstrap 97.5th percentile
+foul_4s,97.1,"leader win % fouling, 4 seconds left"
+defend_4s,94.4,"leader win % defending, 4 s left"
+gap_4s,2.7,"foul minus defend, points, 4 s"
+gap_low_4s,1.3,bootstrap 2.5th percentile
+gap_high_4s,4.9,bootstrap 97.5th percentile
+foul_6s,94.3,"leader win % fouling, 6 seconds left"
+defend_6s,92.5,"leader win % defending, 6 s left"
+gap_6s,1.8,"foul minus defend, points, 6 s"
+gap_low_6s,-0.2,bootstrap 2.5th percentile
+gap_high_6s,4.0,bootstrap 97.5th percentile
+foul_8s,91.7,"leader win % fouling, 8 seconds left"
+defend_8s,91.2,"leader win % defending, 8 s left"
+gap_8s,0.5,"foul minus defend, points, 8 s"
+gap_low_8s,-1.8,bootstrap 2.5th percentile
+gap_high_8s,3.1,bootstrap 97.5th percentile
+foul_10s,90.0,"leader win % fouling, 10 seconds left"
+defend_10s,90.8,"leader win % defending, 10 s left"
+gap_10s,-0.8,"foul minus defend, points, 10 s"
+gap_low_10s,-3.0,bootstrap 2.5th percentile
+gap_high_10s,1.5,bootstrap 97.5th percentile
+foul_12s,88.8,"leader win % fouling, 12 seconds left"
+defend_12s,90.2,"leader win % defending, 12 s left"
+gap_12s,-1.4,"foul minus defend, points, 12 s"
+gap_low_12s,-3.8,bootstrap 2.5th percentile
+gap_high_12s,1.3,bootstrap 97.5th percentile
+foul_15s,86.5,"leader win % fouling, 15 seconds left"
+defend_15s,89.5,"leader win % defending, 15 s left"
+gap_15s,-3.0,"foul minus defend, points, 15 s"
+gap_low_15s,-5.4,bootstrap 2.5th percentile
+gap_high_15s,-0.2,bootstrap 97.5th percentile
+foul_20s,85.4,"leader win % fouling, 20 seconds left"
+defend_20s,89.9,"leader win % defending, 20 s left"
+gap_20s,-4.5,"foul minus defend, points, 20 s"
+gap_low_20s,-7.1,bootstrap 2.5th percentile
+gap_high_20s,-1.9,bootstrap 97.5th percentile
+crossover,8.8,last tenth of a second where fouling is ahead
+foul_better_up_to,8,largest whole second where fouling is ahead
+foul_clearly_better_up_to,5,largest whole second where the 95% interval is above zero
+foul_clearly_worse_from,15,smallest whole second where the 95% interval is below zero
+chance_defend_miss_defensive_rebound,37.7,% of trips at 10 seconds
+after_defend_miss_defensive_rebound,99.8,leader win % after it
+seconds_defend_miss_defensive_rebound,6.3,seconds the trip took
+chance_defend_miss_offensive_rebound,15.9,% of trips at 10 seconds
+after_defend_miss_offensive_rebound,97.0,leader win % after it
+seconds_defend_miss_offensive_rebound,6.3,seconds the trip took
+chance_defend_made_three,15.2,% of trips at 10 seconds
+after_defend_made_three,56.9,leader win % after it
+seconds_defend_made_three,4.6,seconds the trip took
+chance_defend_turnover,11.0,% of trips at 10 seconds
+after_defend_turnover,99.2,leader win % after it
+seconds_defend_turnover,3.6,seconds the trip took
+chance_defend_late_miss_time_runs_out,7.5,% of trips at 10 seconds
+after_defend_late_miss_time_runs_out,99.7,leader win % after it
+seconds_defend_late_miss_time_runs_out,9.1,seconds the trip took
+chance_defend_made_two,6.7,% of trips at 10 seconds
+after_defend_made_two,89.2,leader win % after it
+seconds_defend_made_two,3.3,seconds the trip took
+chance_defend_fouled_on_a_three,4.8,% of trips at 10 seconds
+after_defend_fouled_on_a_three,76.2,leader win % after it
+seconds_defend_fouled_on_a_three,5.0,seconds the trip took
+chance_defend_clock_runs_out,0.5,% of trips at 10 seconds
+after_defend_clock_runs_out,98.9,leader win % after it
+seconds_defend_clock_runs_out,8.9,seconds the trip took
+chance_defend_missed_free_throw_offensive_rebound,0.4,% of trips at 10 seconds
+after_defend_missed_free_throw_offensive_rebound,80.4,leader win % after it
+seconds_defend_missed_free_throw_offensive_rebound,5.0,seconds the trip took
+chance_defend_free_throws_1_of_2,0.2,% of trips at 10 seconds
+after_defend_free_throws_1_of_2,100.0,leader win % after it
+seconds_defend_free_throws_1_of_2,10.4,seconds the trip took
+chance_foul_free_throws_2_of_2,56.9,% of trips at 10 seconds
+after_foul_free_throws_2_of_2,87.8,leader win % after it
+seconds_foul_free_throws_2_of_2,1.8,seconds the trip took
+chance_foul_free_throws_1_of_2,27.0,% of trips at 10 seconds
+after_foul_free_throws_1_of_2,95.6,leader win % after it
+seconds_foul_free_throws_1_of_2,2.7,seconds the trip took
+chance_foul_missed_free_throw_offensive_rebound,10.7,% of trips at 10 seconds
+after_foul_missed_free_throw_offensive_rebound,83.2,leader win % after it
+seconds_foul_missed_free_throw_offensive_rebound,4.2,seconds the trip took
+chance_foul_free_throws_0_of_2,4.8,% of trips at 10 seconds
+after_foul_free_throws_0_of_2,99.3,leader win % after it
+seconds_foul_free_throws_0_of_2,3.1,seconds the trip took
+chance_foul_turnover,0.6,% of trips at 10 seconds
+after_foul_turnover,96.5,leader win % after it
+seconds_foul_turnover,3.9,seconds the trip took
+example_date,"March 11, 2025",
+example_seconds,3.9,seconds left when the trailing team got the ball
+example_shot_seconds,3.4,seconds left at the shot
+example_points,4,points on the trip
+example_trailer_before,111,
+example_trailer_final,115,
+example_leader_final,114,
+bandwidth,4.0,"seconds, chosen on the validation seasons"
+validation_segments,7065,trips in the validation seasons
+validation_loss_best,1.649,outcome log loss at that bandwidth
+bandwidth_tied_low,4.0,smallest window within 0.001 of the best
+bandwidth_tied_high,6.0,largest window within 0.001 of the best
+crossover_low,8.7,smallest crossover over windows of 3 to 6 seconds
+crossover_high,9.1,largest crossover over windows of 3 to 6 seconds
+validation_loss_narrowest,1.704,at 1 s
+test_decisions,301,held-out decisions
+test_loss_model,0.2404,"log loss, Possession Model"
+test_loss_baseline,0.2368,"log loss, Observed Win Rate"
+test_loss_constant,0.2371,"log loss, Constant Guess"
+test_z_baseline,0.56,"z of model minus Observed Win Rate, paired by decision"
+test_z_constant,0.6,"z of model minus Constant Guess, paired by decision"
+test_predicted,92.0,mean predicted leader win %
+test_observed,93.7,observed leader win %

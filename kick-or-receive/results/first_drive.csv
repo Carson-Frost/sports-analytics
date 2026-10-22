@@ -1,0 +1,10 @@
+rule,first_drive,share,receiver_win
+sudden,none,0.5506,0.3557
+sudden,fg,0.2315,1.0
+sudden,td,0.2179,1.0
+modified,none,0.5875,0.3709
+modified,fg,0.1674,0.6271
+modified,td,0.2451,1.0
+both,none,0.5864,0.3701
+both,fg,0.1677,0.6352
+both,td,0.246,0.865

@@ -1,0 +1,4 @@
+model,decisions,log_loss,z_model_minus_this,mean_predicted,observed
+Possession Model,301,0.24045,,0.91986,0.93688
+Observed Win Rate,301,0.23681,0.55807,0.92048,0.93688
+Constant Guess,301,0.23708,0.60113,0.92219,0.93688

@@ -1,0 +1,8 @@
+# Basketball Reference pages: reproduced by scripts/pull.py, not redistributed
+data/raw/
+artifacts/
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/

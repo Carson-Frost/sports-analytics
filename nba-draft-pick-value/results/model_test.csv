@@ -1,0 +1,5 @@
+model,rmse,z_vs_log_curve
+Log Curve,25.7282,
+Exponential Curve,25.8945,1.4034
+Average at Each Pick,26.0455,1.933
+Flat Average,30.3238,7.0217
