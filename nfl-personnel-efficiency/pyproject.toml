@@ -1,0 +1,22 @@
+[project]
+name = "personnel"
+version = "2.0.0"
+description = "NFL personnel groupings: usage and EPA per play, 2016-2025"
+requires-python = ">=3.11"
+dependencies = ["numpy>=2.0", "pandas>=2.2", "pyarrow>=16", "matplotlib>=3.9"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
