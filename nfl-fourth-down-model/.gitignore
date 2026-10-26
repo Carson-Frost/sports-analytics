@@ -1,0 +1,8 @@
+data/raw/
+data/*.parquet
+models/wp_model_spread.ubj
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
