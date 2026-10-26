@@ -1,0 +1,3 @@
+model,possessions,log_loss,predicted,observed
+Possession model,1392,0.3740,0.5612,0.5553
+Win rate by margin and clock,1392,0.3742,0.5590,0.5553
