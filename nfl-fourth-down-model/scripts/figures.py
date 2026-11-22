@@ -8,6 +8,7 @@ import pandas as pd
 from matplotlib.colors import to_rgb
 
 from fourth_down.charts import ACCENT, GREY, INK, LIGHT, MUTED, WIDTH, margins, save, titled
+from fourth_down.grading import NAME
 
 ROOT = Path(__file__).resolve().parents[1]
 R, F = ROOT / "results", ROOT / "figures"
@@ -48,7 +49,6 @@ def recommendation_map(grid):
     from matplotlib.patches import Patch
 
     colours = {"go": ACCENT, "punt": GREY, "fg": FG_COLOUR}
-    names = {"go": "Go for it", "punt": "Punt", "fg": "Field goal"}
     grid = grid.set_index(["ydstogo", "yardline_100"])
     rows = sorted(grid.index.get_level_values(0).unique())
     cols = sorted(grid.index.get_level_values(1).unique(), reverse=True)
@@ -71,7 +71,7 @@ def recommendation_map(grid):
     ax.set_yticks(np.arange(len(rows)) + 0.5, [f"4th & {t}" for t in rows])
     ax.xaxis.tick_top()
     margins(fig, top=1.35, bottom=0.85, left=0.85)
-    fig.legend(handles=[Patch(facecolor=colours[c], label=names[c]) for c in ("go", "punt", "fg")],
+    fig.legend(handles=[Patch(facecolor=colours[c], label=NAME[c]) for c in ("go", "punt", "fg")],
                loc="lower left", bbox_to_anchor=(0.11, 0.045), ncol=3, frameon=False, handlelength=1.2,
                labelcolor=INK)
     titled(fig, "Go for It, Punt, or Kick a Field Goal?",

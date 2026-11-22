@@ -138,6 +138,8 @@ def test_down_3_possessions_carry_the_choice_timeouts_and_buzzer_win_ending():
     d = down3_possessions(possessions)
     assert list(d.action) == ["defend", "foul"] and list(d.timeouts) == [1, 0]
     assert list(d.ending) == ["overtime", "win"] and list(d.leader_won) == [False, True]
+
+
 def test_the_bandwidth_choice_picks_the_lowest_held_out_log_loss():
     # tied games end one way before 12 seconds and another after, so a narrow window fits
     def season(games):
@@ -155,3 +157,100 @@ def test_the_bandwidth_choice_picks_the_lowest_held_out_log_loss():
     assert scores.bandwidth.tolist() == [1.0, 0.05, 0.5]
     assert (scores.possessions == 10 * len(TIMES)).all()
     assert scores.log_loss[scores.bandwidth == h].item() == scores.log_loss.min()
+
+
+NARROW = 0.01  # with 30 games, a state draws only on possessions started within half a second
+
+
+def mixes(outcome, games=30):
+    """Possessions at every margin and second, where `outcome(d0, t0)` gives (points, who has the
+    ball next, seconds used, result), or None to run out the clock. Down 3, both Choices and both
+    timeout counts get the same mix."""
+    out = []
+    for g in range(games):
+        for d0 in range(-15, 16):
+            for t0 in TIMES:
+                delta, nxt, dt, result = outcome(d0, t0) or (0, "none", 0.1, "made")
+                row = dict(game_id=g, d0=d0, t0=float(t0), t1=t0 - dt, delta=delta, next=nxt,
+                           result=result, label=f"{delta} {nxt}")  # fmt: skip
+                choices = [("foul", 0), ("foul", 1), ("defend", 0), ("defend", 1)]
+                for action, timeouts in choices if d0 == -3 else [("defend", 1)]:
+                    out.append(dict(row, action=action, timeouts=timeouts))
+    return pd.DataFrame(out)
+
+
+def test_a_possession_seen_running_out_the_clock_with_time_left_just_uses_its_seconds():
+    def outcome(d0, t0):
+        if d0 == 1:  # up 1, the team holds the ball 2 s from 5 seconds up, and turns it over below
+            return (0, "none", 2.0, "made") if t0 >= 5 else (0, "other", 0.1, "made")
+        if d0 == -1:  # down 1, the team scores 2 at the buzzer
+            return (2, "none", 24.0, "made")
+
+    end = EndGame(mixes(outcome), NARROW, resamples=0)
+    # from 6 seconds the team up 1 holds to 4, turns it over and loses at the buzzer
+    assert end.win_chance(1, 6.0, 2, 2) == 0
+
+
+def test_a_possession_longer_than_the_time_left_ends_at_the_buzzer():
+    def outcome(d0, t0):
+        if d0 == -3:  # down 3, the trailing team ties with a three that takes 5 s
+            return (3, "other", 5.0, "made")
+        if d0 == 0:  # tied, the team with the ball scores 2 at the buzzer
+            return (2, "none", 24.0, "made")
+
+    calls = EndGame(mixes(outcome), NARROW, resamples=0).calls()
+    late = calls.seconds > 5.05  # the team up 3 gets the ball back tied with time to score
+    assert np.allclose(calls.foul_ot[~late], 1) and np.allclose(calls.foul[late], 1)
+
+
+def test_a_miss_at_the_buzzer_seen_with_time_left_is_rebounded_at_the_usual_share():
+    def outcome(d0, t0):
+        if d0 == -1:  # down 1, a miss that takes 2 s from 5 seconds up, 2 at the buzzer below
+            return (0, "none", 2.0, "miss") if t0 >= 5 else (2, "none", 24.0, "made")
+        if d0 == 15:  # never reached: sets the offensive rebound share to 1 in 4
+            return (0, "none", 0.1, "oreb" if t0 % 4 == 0 else "dreb")
+
+    end = EndGame(mixes(outcome), NARROW, resamples=0)
+    # from 6 seconds the team down 1 misses, and wins only when it gets the rebound at 4
+    assert np.isclose(end.win_chance(-1, 6.0, 2, 2), 0.25)
+
+
+def test_the_end_game_matches_a_simulation_of_the_same_game():
+    rng = np.random.default_rng(0)
+
+    def mix(k=40):  # possessions with random starts, points, next team and tenths of a second
+        return dict(t0=rng.uniform(0, 24, k), delta=rng.choice([0, 0, 1, 2, 3], k),
+                    next=rng.choice(["other", "other", "same", "none"], k),
+                    dt=rng.integers(5, 60, k))  # fmt: skip
+
+    behind, ahead = mix(), mix()  # every margin past 9 shares one mix
+    by_margin = {m: behind if m < -9 else ahead if m > 9 else mix() for m in range(-15, 16)}
+    tables = []
+    for m, a in by_margin.items():
+        t = pd.DataFrame(dict(a, game_id=0, d0=m, t1=a["t0"] - a["dt"] / 10, result="made"))
+        t = t.assign(label=t.delta.astype(str) + " " + t.next).drop(columns="dt")
+        # down 3, both Choices and both timeout counts share the mix, so neither can matter
+        for action, timeouts in [("foul", 0), ("foul", 1), ("defend", 0), ("defend", 1)]:
+            tables.append(t.assign(action=action, timeouts=timeouts))
+            if m != -3:
+                break
+    end = EndGame(pd.concat(tables, ignore_index=True), 1e9, resamples=0)  # all weigh the same
+
+    def simulate(margin, seconds, n=20_000):
+        """Play the game n times, drawing each possession at random: the share won at the buzzer
+        by the team that starts with the ball."""
+        wins = 0
+        for _ in range(n):
+            m, j, sign = margin, int(round(seconds * 10)), 1  # sign: +1 while it has the ball
+            while j > 0:
+                a = by_margin[m]
+                k = rng.integers(len(a["delta"]))
+                m, j = int(np.clip(m + a["delta"][k], -15, 15)), j - int(a["dt"][k])
+                if j > 0 and a["next"][k] == "other":
+                    m, sign = -m, -sign
+            wins += sign * m > 0
+        return wins / n
+
+    for margin, seconds in [(-3, 6.0), (0, 10.0), (2, 15.0)]:
+        p = end.win_chance(margin, seconds, 1, 1)
+        assert abs(simulate(margin, seconds) - p) < 0.012

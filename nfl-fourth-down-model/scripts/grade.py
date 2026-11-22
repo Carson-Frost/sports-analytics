@@ -16,8 +16,7 @@ import numpy as np
 import pandas as pd
 
 from fourth_down.data import PLAYS
-from fourth_down.decide import FIRST_SEASON, choice
-from fourth_down.grading import Grader
+from fourth_down.grading import FIRST_SEASON, Grader, choice
 from fourth_down.wp import WinProbability
 
 ROOT = Path(__file__).resolve().parents[1]

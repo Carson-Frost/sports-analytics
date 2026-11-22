@@ -37,7 +37,7 @@ def main():
     plays["game_code"], n_games = codes(plays.game_id)
     n, groupings = prepare_plays(plays)
 
-    effects = {
+    designs = {
         ("all", "2016-2025"): Design(n, groupings),
         ("run", "2016-2025"): Design(n[n["pass"] == 0], groupings),
         ("dropback", "2016-2025"): Design(n[n["pass"] == 1], groupings),
@@ -46,10 +46,10 @@ def main():
     }
     for season in SEASONS:  # each season on its own, to see how each gap changed
         part = n[n.season == season]
-        effects["all", str(season)] = Design(part, groupings)
-        effects["run", str(season)] = Design(part[part["pass"] == 0], groupings)
-        effects["dropback", str(season)] = Design(part[part["pass"] == 1], groupings)
-    estimators = dict(effects)
+        designs["all", str(season)] = Design(part, groupings)
+        designs["run", str(season)] = Design(part[part["pass"] == 0], groupings)
+        designs["dropback", str(season)] = Design(part[part["pass"] == 1], groupings)
+    estimators = dict(designs)
     sit_plays = {}
     for sit in SITUATIONS:  # goal-line groupings get their own term
         sit_plays[sit] = prepare_plays(plays[plays.situation == sit], min_share=0, min_plays=MIN_PLAYS)
@@ -68,7 +68,7 @@ def main():
 
     OUT.mkdir(exist_ok=True)
     rows = []
-    for (kind, period) in effects:
+    for (kind, period) in designs:
         est = out[kind, period]
         part = n if kind == "all" else n[n["pass"] == (kind == "dropback")]
         bounds = [int(year) for year in period.split("-")]  # "2016-2025" or one season, "2016"

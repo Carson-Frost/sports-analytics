@@ -6,8 +6,7 @@ import pandas as pd
 import pytest
 
 from fourth_down.data import add_state
-from fourth_down.decide import N_QUANTILES, TD_POINTS, choice, conversion_x
-from fourth_down.grading import Grader, situation
+from fourth_down.grading import N_QUANTILES, TD_POINTS, Grader, choice, conversion_x, situation
 
 HERE = Path(__file__).parent
 CLOCK = {"convert": 30.0, "fail": 5.0, "fg_made": 5.0, "fg_missed": 5.0, "punt": 9.0}

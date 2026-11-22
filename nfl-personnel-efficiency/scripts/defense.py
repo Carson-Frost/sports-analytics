@@ -39,7 +39,8 @@ def main():
         "run_gap_same_box": Design(runs, groupings, extra=("box",)),
         "play_action_share": GroupMean(recent, "play_action", "grouping", among=recent["pass"] == 1, labels=MAIN),
         "play_types": GroupMean(recent, "epa", ["season", "play_type"]),
-        "base": GroupMean(n, n.defensive_backs <= 4, ["season", "grouping"], among=n.grouping.isin(["11", "12"])),
+        "base_defense": GroupMean(n, n.defensive_backs <= 4, ["season", "grouping"],
+                                  among=n.grouping.isin(["11", "12"])),
         "dropbacks_11": GroupMean(n, "epa", "season", among=(n["pass"] == 1) & (n.grouping == "11")),
     }, n_games, seed=2027)
 
@@ -53,7 +54,7 @@ def main():
 
     types = out["play_types"].rename(columns={"estimate": "epa"}).rename_axis(["season", "play_type"]).reset_index()
     types.round(4).to_csv(OUT / "play_types.csv", index=False)
-    base = out["base"].rename(columns={"estimate": "base_defense"}).reset_index()
+    base = out["base_defense"].rename(columns={"estimate": "base_defense"}).reset_index()
     base.round(4).to_csv(OUT / "base_by_season.csv", index=False)
     out["dropbacks_11"].rename(columns={"estimate": "epa"}).rename_axis("season").reset_index().round(4).to_csv(
         OUT / "dropbacks_11.csv", index=False)
