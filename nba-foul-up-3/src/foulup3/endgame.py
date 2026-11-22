@@ -27,6 +27,12 @@ _FLOOR = 0.5  # narrowest window, in seconds
 _CLOSE = 9  # every margin up to this gets its own outcome mix; wider ones share one
 
 
+def in_shown(seconds, last: float = SHOWN[1]):
+    """Whether each of `seconds` lies from SHOWN[0] to `last` seconds left, allowing for float
+    error on the tenth-of-a-second grid."""
+    return (seconds >= SHOWN[0] - 1e-9) & (seconds <= last + 1e-9)
+
+
 def _state_class(margin: int, action: str = "defend") -> str:
     """Which outcome mix a state draws from. A team up 4 is fouled on most trips and a team up
     15 runs out the clock, so margins are kept apart until the game is out of reach."""
@@ -207,13 +213,14 @@ class EndGame:
                 t[c], t[f"{c}_ot"] = p[c], 1 - p[c] - p[f"{c}_loss"]
                 t[f"{c}_loss"] = p[f"{c}_loss"]
             t["gap"] = p["foul"] - p["defend"]
-            if self._gaps is not None:
-                t["gap_low"], t["gap_high"] = np.percentile(self._gaps[state], [LOW, HIGH], axis=0)
-            t["call"] = np.where(t.gap >= 0, "foul", "defend")
-            if self._gaps is not None:
-                t["clear"] = (t.gap_low > 0) | (t.gap_high < 0)
-            shown = (t.seconds >= SHOWN[0] - 1e-9) & (t.seconds <= SHOWN[1] + 1e-9)
-            tables.append(t[shown])
+            call = np.where(t.gap >= 0, "foul", "defend")
+            if self._gaps is None:
+                t["call"] = call
+            else:
+                low, high = np.percentile(self._gaps[state], [LOW, HIGH], axis=0)
+                t["gap_low"], t["gap_high"], t["call"] = low, high, call
+                t["clear"] = (low > 0) | (high < 0)
+            tables.append(t[in_shown(t.seconds)])
         return pd.concat(tables, ignore_index=True)
 
     def win_chance(self, margin, seconds, timeouts, opp_timeouts, choice=None) -> np.ndarray:
@@ -254,6 +261,7 @@ class EndGame:
                              leader_wins_after=np.average(g.leader, weights=g.w),
                              possessions=len(g)))  # fmt: skip
         return pd.DataFrame(rows)
+
 
 def _held_out_losses(train: dict, held_out: dict, bandwidth: float) -> list[float]:
     """Log loss of each held-out possession's outcome under the training mix, mixed 99 to 1 with

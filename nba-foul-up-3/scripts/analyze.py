@@ -12,7 +12,14 @@ import numpy as np
 import pandas as pd
 
 from foulup3 import MODEL_SEASONS, SEASONS
-from foulup3.endgame import SHOWN, EndGame, buzzer_margin, choose_bandwidth, down3_possessions
+from foulup3.endgame import (
+    SHOWN,
+    EndGame,
+    buzzer_margin,
+    choose_bandwidth,
+    down3_possessions,
+    in_shown,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 POSSESSIONS = ROOT / "data" / "derived" / "possessions.parquet"
@@ -26,7 +33,7 @@ TREE_SECONDS = 10.0  # where teams foul most
 
 def shown(d: pd.DataFrame, last: float = SHOWN[1]) -> pd.DataFrame:
     """The down-3 possessions starting from SHOWN[0] to `last` seconds left."""
-    return d[(d.t0 >= SHOWN[0]) & (d.t0 <= last)]
+    return d[in_shown(d.t0, last)]
 
 
 def foul_rate(possessions: pd.DataFrame) -> pd.DataFrame:
@@ -133,13 +140,11 @@ def main():
     foul_rate(every).to_csv(OUT / "foul_rate.csv", index=False, float_format="%.4f")
 
     possessions = every[every.season.isin(MODEL_SEASONS)].reset_index(drop=True)
-    # fit on the first three model seasons and score the last two; the published header says
-    # segments, the old word for possessions
+    # fit on the first three model seasons and score the last two
     h, scores = choose_bandwidth(possessions[possessions.season.isin(MODEL_SEASONS[:3])],
                                  possessions[possessions.season.isin(MODEL_SEASONS[3:])],
                                  BANDWIDTHS)  # fmt: skip
-    scores.rename(columns=dict(possessions="segments")).to_csv(OUT / "bandwidth.csv", index=False,
-                                                               float_format="%.5f")  # fmt: skip
+    scores.to_csv(OUT / "bandwidth.csv", index=False, float_format="%.5f")
     print(f"window {h} of the time left", flush=True)
     end = EndGame(possessions, h, seed=SEED)
     end.calls().to_csv(OUT / "win_probability.csv", index=False, float_format="%.4f")
