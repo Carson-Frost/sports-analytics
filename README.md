@@ -1,7 +1,7 @@
 # Sports Analytics
 
 These are my NBA and NFL analyses: end-of-game decisions, fourth-down decisions and offensive
-personnel. Each project below is its own folder with its code, a write-up of what I found, and
+personnel. Each analysis below is its own folder with its code, a write-up of what I found, and
 its charts.
 
 ## Projects
