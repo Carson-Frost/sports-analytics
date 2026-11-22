@@ -12,17 +12,7 @@ import numpy as np
 import pandas as pd
 
 from foulup3 import MODEL_SEASONS, SEASONS
-
-# the private End game names are read by calibration, the decision check and the tree, until
-# those move behind EndGame
-from foulup3.endgame import _STEP as STEP
-from foulup3.endgame import SHOWN, EndGame, buzzer_margin, choose_bandwidth, decisions
-from foulup3.endgame import _after as after
-from foulup3.endgame import _by_timeouts as by_timeouts
-from foulup3.endgame import _fit as fit
-from foulup3.endgame import _outcome_arrays as outcome_arrays
-from foulup3.endgame import _solve as solve
-from foulup3.endgame import _weights as weights
+from foulup3.endgame import SHOWN, EndGame, buzzer_margin, choose_bandwidth, down3_possessions
 
 ROOT = Path(__file__).resolve().parents[1]
 POSSESSIONS = ROOT / "data" / "derived" / "possessions.parquet"
@@ -34,16 +24,13 @@ SEED = 2026
 TREE_SECONDS = 10.0  # where teams foul most
 
 
-def choices(possessions: pd.DataFrame, last: float = SHOWN[1]) -> pd.DataFrame:
-    """Possessions starting with `last` seconds or less where the trailing team got the ball
-    down 3 and the team up 3 either fouled (sending them to the line) or defended. Fouls to give
-    are left out. `possessions` must hold whole periods, so each game's ending is known."""
-    d = decisions(possessions)
-    return d[d.action.isin(["foul", "defend"]) & (d.t0 >= SHOWN[0]) & (d.t0 <= last)]
+def shown(d: pd.DataFrame, last: float = SHOWN[1]) -> pd.DataFrame:
+    """The down-3 possessions starting from SHOWN[0] to `last` seconds left."""
+    return d[(d.t0 >= SHOWN[0]) & (d.t0 <= last)]
 
 
 def foul_rate(possessions: pd.DataFrame) -> pd.DataFrame:
-    d = choices(possessions)
+    d = shown(down3_possessions(possessions))
     bands = pd.cut(d.t0, BANDS, right=False)
     d = d.assign(band=bands.cat.rename_categories(lambda b: f"{b.left} to {b.right}"))
     rows = []
@@ -65,7 +52,7 @@ def calibration(possessions: pd.DataFrame, h: float) -> pd.DataFrame:
     possessions = possessions.assign(won=buzzer_margin(possessions) > 0)
     held = possessions.season.isin(TEST_SEASONS)
     train, test = possessions[~held], possessions[held]
-    grids = {state: r["value"][0] for state, r in fit(train, h).items()}
+    end = EndGame(train, h, resamples=0)
 
     def states(d):
         # down 3 is left out: there the model assumes the better choice, not the one made
@@ -73,11 +60,7 @@ def calibration(possessions: pd.DataFrame, h: float) -> pd.DataFrame:
         return d.assign(bin=np.minimum(d.t0 // 4, 4).astype(int))  # 20.0 joins 16-20
 
     tr, te = states(train), states(test)
-    at = (te.d0 + 15, np.round(te.t0 / STEP).astype(int))
-    has, none = grids["has a timeout"][at], grids["no timeout"][at]
-    # the timeouts that matter are the trailing team's; when tied, either team could fall behind
-    trailing = np.where(te.d0 < 0, te.timeouts, te.opp_timeouts)
-    p_model = np.where(te.d0 == 0, (has + none) / 2, np.where(trailing > 0, has, none))
+    p_model = end.win_chance(te.d0, te.t0, te.timeouts, te.opp_timeouts)
     rate = tr.groupby(["d0", "bin"]).won.agg(lambda y: (y.sum() + 1) / (len(y) + 2))
     p_rate = rate.reindex(pd.MultiIndex.from_arrays([te.d0, te.bin])).to_numpy()
     y = te.won.to_numpy(float)
@@ -96,7 +79,7 @@ def calibration(possessions: pd.DataFrame, h: float) -> pd.DataFrame:
 def foul_share_by_second(possessions: pd.DataFrame) -> pd.DataFrame:
     """How often the team up 3 fouled, for possessions starting within a second of each even
     second from 2 to 20."""
-    d = choices(possessions, SHOWN[1] + 1)
+    d = shown(down3_possessions(possessions), SHOWN[1] + 1)
     rows = []
     for t in range(2, 21, 2):
         g = d[(d.t0 >= t - 1) & (d.t0 < t + 1)]
@@ -109,21 +92,13 @@ def tree(possessions: pd.DataFrame, h: float) -> pd.DataFrame:
     """Every outcome of the trailing team's possession at TREE_SECONDS under each choice, when it
     has a timeout (the usual case there): its chance, the seconds it took, and the team up 3's
     chance to win at the buzzer after it."""
-    arrays = outcome_arrays(by_timeouts(possessions)["has a timeout"])
-    value = solve(arrays, h)["value"]
-    i = int(round(TREE_SECONDS / STEP))
-    rows = []
-    for choice in ["defend", "foul"]:
-        a = arrays[f"down 3, {choice}"]
-        mix = pd.DataFrame(dict(label=a["label"], w=weights(a["t0"], TREE_SECONDS, h),
-                                seconds=a["dt"] * STEP,
-                                leader=after(value, a, -3, i)[1]))  # fmt: skip
-        for name, g in mix[mix.w > 0].groupby("label"):
-            rows.append(dict(seconds_left=TREE_SECONDS, choice=choice, outcome=name,
-                             chance=g.w.sum(), seconds=np.average(g.seconds, weights=g.w),
-                             leader_wins_after=np.average(g.leader, weights=g.w),
-                             possessions=len(g)))  # fmt: skip
-    return pd.DataFrame(rows).sort_values(["choice", "chance"], ascending=[True, False])
+    end = EndGame(possessions, h, resamples=0)
+    mixes = [end.outcome_mix(TREE_SECONDS, c, "has a timeout").assign(choice=c)
+             for c in ["defend", "foul"]]  # fmt: skip
+    out = pd.concat(mixes, ignore_index=True).assign(seconds_left=TREE_SECONDS)
+    out = out[["seconds_left", "choice", "outcome", "chance", "seconds", "leader_wins_after",
+               "possessions"]]  # fmt: skip
+    return out.sort_values(["choice", "chance"], ascending=[True, False])
 
 
 def miss_chance(p: np.ndarray, wins: int) -> float:
@@ -136,21 +111,13 @@ def miss_chance(p: np.ndarray, wins: int) -> float:
     return float(dist[np.abs(np.arange(len(dist)) - p.sum()) >= gap - 1e-9].sum())
 
 
-def decision_check(possessions: pd.DataFrame, h: float) -> pd.DataFrame:
+def decision_check(possessions: pd.DataFrame, end: EndGame) -> pd.DataFrame:
     """For the choice each team actually made: wins at the buzzer against the wins the model
     expected, by choice and stretch of the clock, and how often a miss that size happens by
     chance alone."""
-    split = fit(possessions, h)
-    d = choices(possessions)
-    i = np.round(d.t0.to_numpy() / STEP).astype(int)
-    foul = (d.action == "foul").to_numpy()
-
-    def win(r):
-        return np.where(foul, r["foul"][i], r["defend"][i])
-
-    has = (d.timeouts > 0).to_numpy()
-    d = d.assign(p=np.where(has, win(split["has a timeout"]), win(split["no timeout"])),
-                 band=pd.cut(d.t0, BANDS, right=False))  # fmt: skip
+    d = shown(down3_possessions(possessions))
+    p = end.win_chance(-3, d.t0, d.timeouts, d.opp_timeouts, choice=d.action)
+    d = d.assign(p=p, band=pd.cut(d.t0, BANDS, right=False))
     rows = []
     for (choice, band), x in d.groupby(["action", "band"], observed=True):
         wins = int(x.leader_won.sum())
@@ -174,17 +141,17 @@ def main():
     scores.rename(columns=dict(possessions="segments")).to_csv(OUT / "bandwidth.csv", index=False,
                                                                float_format="%.5f")  # fmt: skip
     print(f"window {h} of the time left", flush=True)
-    calls = EndGame(possessions, h, seed=SEED).calls()
-    calls.to_csv(OUT / "win_probability.csv", index=False, float_format="%.4f")
+    end = EndGame(possessions, h, seed=SEED)
+    end.calls().to_csv(OUT / "win_probability.csv", index=False, float_format="%.4f")
 
     calibration(possessions, h).to_csv(OUT / "calibration.csv", index=False, float_format="%.4f")
-    decision_check(possessions, h).to_csv(OUT / "decision_check.csv", index=False,
+    decision_check(possessions, end).to_csv(OUT / "decision_check.csv", index=False,
                                           float_format="%.4f")  # fmt: skip
     tree(possessions, h).to_csv(OUT / "tree.csv", index=False, float_format="%.4f")
     foul_share_by_second(possessions).to_csv(OUT / "foul_share_by_second.csv", index=False,
                                       float_format="%.4f")  # fmt: skip
 
-    d = choices(possessions)
+    d = shown(down3_possessions(possessions))
     games = pd.read_parquet(POSSESSIONS.with_name("games.parquet"))
     pd.DataFrame([dict(model_first=MODEL_SEASONS[0], model_last=MODEL_SEASONS[-1],
                        model_games=int(games.season.isin(MODEL_SEASONS).sum()),

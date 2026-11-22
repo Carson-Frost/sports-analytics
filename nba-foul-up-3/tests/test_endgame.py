@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from foulup3.endgame import EndGame, choose_bandwidth
+from foulup3.endgame import EndGame, choose_bandwidth, down3_possessions
 
 H = 2.0  # bandwidth for the toy end games
 TIMES = np.arange(1, 25)  # a possession starting at every second
@@ -74,6 +74,70 @@ def test_the_same_seed_gives_the_same_intervals():
     assert not np.allclose(first.gap_low, other.gap_low)
 
 
+def by_timeouts():
+    """Down 3, a trailing team with a timeout never wins, and one without always does (it scores
+    4 and runs out the clock under either Choice)."""
+    return pd.concat([
+        toy(timeouts=(1,)),
+        toy(foul=(4, "none"), defend=(4, "none"), timeouts=(0,)),
+    ], ignore_index=True)  # fmt: skip
+
+
+def test_down_3_the_trailing_teams_timeouts_pick_the_state_the_lookup_reads():
+    end = EndGame(by_timeouts(), H, resamples=0)
+    calls = end.calls().set_index(["timeouts", "seconds"])
+    # the trailing team's chance down 3 is the team up 3's chance to lose under the Call
+    has, none = (calls.loc[(s, 5.0)] for s in ["has a timeout", "no timeout"])
+    has_p, none_p = (r[f"{r.call}_loss"] for r in [has, none])
+    assert np.allclose([has_p, none_p], [0, 1])
+    p = end.win_chance(margin=[-3, -3], seconds=[5.0, 5.0], timeouts=[2, 0], opp_timeouts=[0, 2])
+    assert np.allclose(p, [has_p, none_p])
+
+
+def test_at_a_tie_the_lookup_averages_both_timeout_states():
+    possessions = by_timeouts()
+    tied = possessions.d0 == 0
+    # tied, the team with the ball always hits a three, leaving the other team down 3 with it
+    possessions.loc[tied, ["delta", "next"]] = [3, "other"]
+    end = EndGame(possessions, H, resamples=0)
+    # the team up 3 then always wins with a timeout against it and never wins without one
+    p = end.win_chance(margin=[0, 0], seconds=[5.0, 5.0], timeouts=[2, 0], opp_timeouts=[0, 2])
+    assert np.allclose(p, 0.5)
+
+
+def test_with_a_choice_the_lookup_gives_the_team_up_3s_chance_under_it():
+    end = EndGame(toy(), H, resamples=0)  # fouling wins, defending ties
+    p = end.win_chance(margin=-3, seconds=[5.0, 5.0], timeouts=1, opp_timeouts=2,
+                       choice=["foul", "defend"])  # fmt: skip
+    assert np.allclose(p, [1, 0])
+
+
+def test_each_choices_outcome_mix_chances_sum_to_1():
+    def defend(game):  # two games in three the trailing team ties, in the other it scores nothing
+        return (3, "none") if game % 3 else (0, "other")
+
+    end = EndGame(toy(vary=defend), H, resamples=0)
+    for choice in ["foul", "defend"]:
+        mix = end.outcome_mix(10.0, choice, "has a timeout")
+        assert np.isclose(mix.chance.sum(), 1)
+    mix = end.outcome_mix(10.0, "defend", "has a timeout").set_index("outcome")
+    assert np.allclose(mix.chance, [1 / 3, 2 / 3])  # "0 other", then "3 none"
+    assert np.allclose(mix.leader_wins_after, [1, 0]) and np.allclose(mix.seconds, 0.1)
+
+
+def test_down_3_possessions_carry_the_choice_timeouts_and_buzzer_win_ending():
+    columns = ["game_id", "period", "off", "d0", "delta", "how", "t0", "action", "timeouts"]
+    possessions = pd.DataFrame([
+        (1, 4, "A", -3, 3, "change", 8.0, "defend", 1),  # A ties: overtime
+        (1, 4, "B", 0, 0, "change", 2.0, "defend", 0),
+        (2, 4, "A", -3, 0, "change", 12.0, "foul to give", 2),  # not a Choice
+        (2, 4, "A", -3, 0, "oreb", 9.0, "defend", 2),  # A kept the ball, not got it
+        (2, 4, "A", -3, 2, "change", 6.0, "foul", 0),  # A scores 2, B runs out the clock
+        (2, 4, "B", 1, 0, "change", 3.0, "defend", 2),
+    ], columns=columns)  # fmt: skip
+    d = down3_possessions(possessions)
+    assert list(d.action) == ["defend", "foul"] and list(d.timeouts) == [1, 0]
+    assert list(d.ending) == ["overtime", "win"] and list(d.leader_won) == [False, True]
 def test_the_bandwidth_choice_picks_the_lowest_held_out_log_loss():
     # tied games end one way before 12 seconds and another after, so a narrow window fits
     def season(games):
