@@ -21,8 +21,8 @@ punt = mean(wp(their_ball_after_each_punt))
 
 Conversion, gains, field goals, punts, kickoffs and clock are fit on 2015-2025 plays. Each fourth
 down is graded again on 200 resamples of the games. I set the bar for a clear call at
-1 percentage point for simplicity: the better option has to win by that much in the middle 90% of
-resamples.
+1 percentage point for simplicity: the best option has to beat the runner-up by that much in the middle
+90% of resamples. Anything closer is a toss-up.
 
 ## Results
 
@@ -44,7 +44,8 @@ punt  17.1%
 Go for it: +9.6 over a field goal (90%: +6.9 to +12.1). Clear call.
 ```
 
-Optional: `--timeouts`, `--opp-timeouts`, `--spread`, `--home`, `--gets-second-half-kickoff`.
+Optional: `--timeouts`, `--opp-timeouts`, `--spread`, `--home`, `--gets-second-half-kickoff`. Without
+`--home`, each option's win probability is averaged over home and away.
 
 ## Limits
 
