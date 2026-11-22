@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import numpy as np
@@ -6,7 +7,7 @@ import pytest
 
 from fourth_down.data import add_state
 from fourth_down.decide import N_QUANTILES, TD_POINTS, choice, conversion_x
-from fourth_down.grading import Grader
+from fourth_down.grading import Grader, situation
 
 HERE = Path(__file__).parent
 CLOCK = {"convert": 30.0, "fail": 5.0, "fg_made": 5.0, "fg_missed": 5.0, "punt": 9.0}
@@ -135,13 +136,30 @@ def test_smoothing_stays_inside_the_half():
     assert np.all((p > 0) & (p < 1))
 
 
-def test_spot_parsing():
-    import importlib.util
+@pytest.mark.parametrize("spot, yardline", [("own 35", 65), ("opp 20", 20), ("50", 50), ("Own 1", 99), ("OPP 3", 3)])
+def test_a_spot_is_yards_to_the_opponents_goal(spot, yardline):
+    assert situation(distance=2, spot=spot, quarter=1, clock="10:00", score=0).yardline_100.iloc[0] == yardline
 
-    spec = importlib.util.spec_from_file_location("call", HERE.parent / "scripts" / "call.py")
-    call = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(call)
-    assert [call.yardline_100(x) for x in ("own 35", "opp 20", "50", "Own 1")] == [65, 20, 50, 99]
+
+def test_the_clock_gives_game_and_half_seconds():
+    second = situation(distance=2, spot="50", quarter=2, clock="5:30", score=0).iloc[0]
+    fourth = situation(distance=2, spot="50", quarter=4, clock="2:00", score=-3).iloc[0]
+    assert (second.game_seconds_remaining, second.half_seconds_remaining) == (2130, 330)
+    assert (fourth.game_seconds_remaining, fourth.half_seconds_remaining) == (120, 120)
+    assert fourth.score_differential == -3
+
+
+def test_the_second_half_kickoff_counts_only_in_the_first_half():
+    first = situation(distance=2, spot="50", quarter=2, clock="1:00", score=0, gets_second_half_kickoff=True)
+    second = situation(distance=2, spot="50", quarter=3, clock="1:00", score=0, gets_second_half_kickoff=True)
+    assert (first.receive_2h_ko.iloc[0], second.receive_2h_ko.iloc[0]) == (1, 0)
+
+
+def test_a_situation_with_no_home_side_is_graded_as_unknown():
+    s = situation(distance=4, spot="own 40", quarter=2, clock="15:00", score=0)
+    assert np.isnan(s.home.iloc[0])
+    pd.testing.assert_frame_equal(graded(go_over_punt(0.001), s).reset_index(drop=True),
+                                  graded(go_over_punt(0.001), fourth_down(60, 4, home=np.nan)))
 
 
 def toy_wp(score, yardline, home=1):
@@ -158,7 +176,7 @@ def go_over_punt(gap):
 @pytest.mark.parametrize("gap, clear", [(0.012, True), (0.008, False)])
 def test_clear_when_the_gap_is_at_least_a_point_in_every_resample(gap, clear):
     g = graded(go_over_punt(gap), fourth_down(60, 4)).iloc[0]
-    assert g.call == "go"
+    assert (g.call, g.runner_up) == ("go", "punt")
     assert g.gap == pytest.approx(gap)
     assert g.gap_low == pytest.approx(gap) and g.gap_high == pytest.approx(gap)
     assert g.clear == clear
@@ -174,7 +192,7 @@ def fg_over_punt(gap):
 def test_a_field_goal_narrowly_over_a_punt_is_a_toss_up_when_going_is_clearly_worse():
     g = graded(fg_over_punt(0.005), fourth_down(30, 10)).iloc[0]
     assert g.go < g.punt - 0.05
-    assert g.call == "fg"
+    assert (g.call, g.runner_up) == ("fg", "punt")
     assert g.gap == pytest.approx(0.005)
     assert not g.clear
 
@@ -232,7 +250,8 @@ def synthetic_plays(games=12, seed=0):
                 row.update(play_type="field_goal", down=4, kick_distance=distance,
                            field_goal_result="made" if rng.random() < 0.8 - distance / 100 else "missed")
             elif kind == "punt":
-                row.update(play_type="punt", down=4, yardline_100=62, kick_distance=40 + rng.integers(0, 15))
+                row.update(play_type="punt", down=4, yardline_100=62, kick_distance=40 + rng.integers(0, 15),
+                           return_yards=10 * rng.random())
             else:
                 row.update(down=1, drive_start_transition="KICKOFF", yardline_100=65 + rng.integers(0, 15))
             rows.append(row)
@@ -262,3 +281,11 @@ def test_a_game_drawn_twice_counts_twice_in_the_season_summary():
     assert s.go_rate == pytest.approx(50)
     assert s.go_rate_low == pytest.approx(200 / 3) and s.go_rate_high == pytest.approx(200 / 3)
     assert s.wins_lost == pytest.approx(0.012)
+
+
+def test_a_saved_and_loaded_grader_grades_as_the_fitted_one_did():
+    states = pd.concat([fourth_down(60, 4), fourth_down(30, 10), fourth_down(85, 2, home=np.nan)], ignore_index=True)
+    fitted = Grader.fit(ToyWP(), synthetic_plays(), resamples=3, seed=1)
+    loaded = Grader.from_json(ToyWP(), json.loads(json.dumps(fitted.to_json())))
+    assert len(loaded.resamples) == 3
+    pd.testing.assert_frame_equal(loaded.grade(states), fitted.grade(states), check_exact=True)

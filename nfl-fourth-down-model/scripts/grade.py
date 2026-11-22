@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from fourth_down.data import PLAYS
-from fourth_down.decide import FIRST_SEASON, choice, submodels_to_json
+from fourth_down.decide import FIRST_SEASON, choice
 from fourth_down.grading import Grader
 from fourth_down.wp import WinProbability
 
@@ -46,8 +46,7 @@ def map_grid():
 def main():
     plays = pd.read_parquet(PLAYS)
     grader = Grader.fit(WinProbability(), plays[plays.season.between(FIRST_SEASON, LAST_SEASON)])
-    SUBMODELS.write_text(json.dumps({"point": submodels_to_json(grader.point),
-                                     "resamples": [submodels_to_json(s) for s in grader.resamples]}))
+    SUBMODELS.write_text(json.dumps(grader.to_json()))
 
     f = fourth_downs(plays)
     f = f.assign(coach=choice(f.play_type))
@@ -60,7 +59,7 @@ def main():
     seasons.round(1).to_csv(RESULTS / "by_season.csv", index=False)
 
     grid = map_grid()
-    m = grid[["ydstogo", "yardline_100"]].join(grader.grade(grid).drop(columns=["clear_go", "clear_kick"]))
+    m = grid[["ydstogo", "yardline_100"]].join(grader.grade(grid).drop(columns=["runner_up", "clear_go", "clear_kick"]))
     m.round(4).to_csv(RESULTS / "recommendation_map.csv", index=False)
     print(seasons.round(1).to_string())
 

@@ -7,37 +7,13 @@ import argparse
 import json
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
-
-from fourth_down.decide import FG_OFFSET, submodels_from_json
-from fourth_down.grading import CLEAR, Grader
+from fourth_down.decide import FG_OFFSET
+from fourth_down.grading import Grader, situation
 from fourth_down.wp import WinProbability
 
 ROOT = Path(__file__).resolve().parents[1]
-SEASON = 2025
-
-
-def yardline_100(spot):
-    """'own 35' -> 65, 'opp 20' -> 20, '50' -> 50: yards to the opponent's goal line."""
-    side, _, yards = spot.lower().rpartition(" ")
-    yards = int(yards)
-    return 100 - yards if side == "own" else yards
-
-
-def state(a):
-    m, s = a.clock.split(":")
-    left = int(m) * 60 + int(s)
-    game = (4 - a.quarter) * 900 + left
-    half = game - 1800 if a.quarter <= 2 else game
-    home = np.nan if a.home is None else a.home  # unknown: the grader averages home and away
-    return pd.DataFrame({
-        "score_differential": a.score, "game_seconds_remaining": game, "half_seconds_remaining": half,
-        "yardline_100": yardline_100(a.spot), "down": 4, "ydstogo": a.distance,
-        "posteam_timeouts_remaining": a.timeouts, "defteam_timeouts_remaining": a.opp_timeouts,
-        "receive_2h_ko": int(a.gets_second_half_kickoff and a.quarter <= 2), "posteam_spread": a.spread,
-        "season": SEASON, "home": home,
-    }, index=[0])
+NAME = {"go": "Go for it", "fg": "Field goal", "punt": "Punt"}
+OTHER = {"go": "going for it", "fg": "a field goal", "punt": "a punt"}
 
 
 def main():
@@ -54,29 +30,19 @@ def main():
     p.add_argument("--gets-second-half-kickoff", action="store_true")
     a = p.parse_args()
 
-    saved = json.loads((ROOT / "models" / "submodels.json").read_text())
-    grader = Grader(WinProbability(), submodels_from_json(saved["point"]),
-                    [submodels_from_json(d) for d in saved["resamples"]])
-    point = grader.grade(state(a)).iloc[0]
-    low, high = point.edge_low * 100, point.edge_high * 100
+    grader = Grader.from_json(WinProbability(), json.loads((ROOT / "models" / "submodels.json").read_text()))
+    state = situation(a.distance, a.spot, a.quarter, a.clock, a.score, a.timeouts, a.opp_timeouts, a.spread,
+                      a.home, a.gets_second_half_kickoff)
+    g = grader.grade(state).iloc[0]
+    kick_yards = state.yardline_100.iloc[0] + FG_OFFSET
 
-    kick = "fg" if point.fg > point.punt else "punt"
-    edge = point.go_edge * 100
-    kick_yards = yardline_100(a.spot) + FG_OFFSET
-    in_range = kick_yards <= saved["point"]["fg_longest"]
-
-    print(f"go    {100 * point.go:.1f}%")
-    fg = f"{100 * point.fg:.1f}%" if in_range else "-"
+    print(f"go    {100 * g.go:.1f}%")
+    fg = f"{100 * g.fg:.1f}%" if kick_yards <= grader.point["fg_longest"] else "-"
     print(f"fg    {fg}  ({kick_yards:.0f} yards)")
-    print(f"punt  {100 * point.punt:.1f}%")
-    name = {"go": "Go for it", "fg": "Field goal", "punt": "Punt"}
-    other = {"go": "going for it", "fg": "a field goal", "punt": "a punt"}
-    if edge > 0:
-        best, vs, by, lo, hi = "go", kick, edge, low, high
-    else:
-        best, vs, by, lo, hi = kick, "go", -edge, -high, -low
-    clear = "Clear call." if lo >= CLEAR * 100 else "Too close to call."
-    print(f"\n{name[best]}: +{by:.1f} over {other[vs]} (90%: {lo:+.1f} to {hi:+.1f}). {clear}")
+    print(f"punt  {100 * g.punt:.1f}%")
+    verdict = "Clear call." if g.clear else "Toss-up."
+    print(f"\n{NAME[g.call]}: +{100 * g.gap:.1f} over {OTHER[g.runner_up]} "
+          f"(90%: {100 * g.gap_low:+.1f} to {100 * g.gap_high:+.1f}). {verdict}")
 
 
 if __name__ == "__main__":

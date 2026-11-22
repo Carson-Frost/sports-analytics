@@ -2,6 +2,7 @@
 
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import LogisticRegression
 
 from fourth_down.decide import (
     CHOICES,
@@ -11,12 +12,31 @@ from fourth_down.decide import (
     TD_POINTS,
     conversion_x,
     fg_x,
-    fit_submodels,
 )
 
 CLEAR = 0.01  # a Clear Call beats the next-best Choice by at least a point across the middle 90% of Resamples
 LOW, HIGH = 5, 95  # percentiles of a 90% interval
 RESAMPLES = 200
+
+
+def situation(distance, spot, quarter, clock, score, timeouts=3, opp_timeouts=3, spread=0.0, home=None,
+              gets_second_half_kickoff=False, season=2025):
+    """One fourth-down state from a game situation, ready to Grade.
+
+    spot is "own 35", "opp 20" or "50"; clock the time left in the quarter, "M:SS"; score the offense
+    minus the defense; spread the points the offense was favored by; home 1 or 0, or None when unknown.
+    """
+    side, _, yards = spot.lower().rpartition(" ")
+    minutes, seconds = clock.split(":")
+    game = (4 - quarter) * 900 + int(minutes) * 60 + int(seconds)
+    return pd.DataFrame({
+        "score_differential": score, "game_seconds_remaining": game,
+        "half_seconds_remaining": game - 1800 if quarter <= 2 else game,
+        "yardline_100": 100 - int(yards) if side == "own" else int(yards), "down": 4, "ydstogo": distance,
+        "posteam_timeouts_remaining": timeouts, "defteam_timeouts_remaining": opp_timeouts,
+        "receive_2h_ko": int(gets_second_half_kickoff and quarter <= 2), "posteam_spread": float(spread),
+        "season": season, "home": np.nan if home is None else float(home),
+    }, index=[0])
 
 
 class Grader:
@@ -35,11 +55,21 @@ class Grader:
         rng = np.random.default_rng(seed)
         games = plays.game_id.unique()
         draws = [pd.Series(rng.choice(games, len(games))).value_counts() for _ in range(resamples)]
-        return cls(model, fit_submodels(plays), [fit_submodels(_redraw(plays, d)) for d in draws], draws)
+        return cls(model, _fit_submodels(plays), [_fit_submodels(_redraw(plays, d)) for d in draws], draws)
+
+    @classmethod
+    def from_json(cls, model, saved):
+        """A grader from `to_json`'s dict: it Grades exactly as the fitted one did, but has no draws."""
+        return cls(model, _submodels_from_json(saved["point"]), [_submodels_from_json(d) for d in saved["resamples"]])
+
+    def to_json(self):
+        """The point fit and every Resample's submodels, as a JSON-ready dict."""
+        return {"point": _submodels_to_json(self.point), "resamples": [_submodels_to_json(s) for s in self.resamples]}
 
     def grade(self, states):
-        """One row per state: each Choice's Win probability; the Call, its gap over the next-best Choice
-        with a 90% interval, and Clear; the Go edge with its interval, Clear for go and Clear for a kick.
+        """One row per state: each Choice's Win probability; the Call and the runner-up (the next-best
+        Choice), the Call's gap over it with a 90% interval, and Clear; the Go edge with its interval,
+        Clear for go and Clear for a kick.
 
         A state with no home side (home NaN) is averaged over home and away. With a coach column (the
         coach's Choice), cost is the Win probability it gave up.
@@ -92,7 +122,8 @@ class Grader:
         best, runner_up = ranked[:, 0], ranked[:, 1]
         gaps = draws[:, rows, best] - draws[:, rows, runner_up]
         out = pd.DataFrame(wp, columns=CHOICES, index=states.index).assign(
-            call=np.array(CHOICES)[best], gap=wp[rows, best] - wp[rows, runner_up])
+            call=np.array(CHOICES)[best], runner_up=np.array(CHOICES)[runner_up],
+            gap=wp[rows, best] - wp[rows, runner_up])
         out["gap_low"], out["gap_high"] = np.percentile(gaps, [LOW, HIGH], axis=0)
         out["clear"] = out.gap_low >= CLEAR
         out["go_edge"] = _go_edge(wp)
@@ -189,3 +220,97 @@ def _choice_wp(model, sub, s):
     punt = theirs(0, spots, "punt", rows=rep).reshape(n, N_QUANTILES).mean(axis=1)
 
     return pd.DataFrame({"go": go, "fg": fg, "punt": punt}, index=s.index)
+
+
+def _clock_used(plays):
+    """Median seconds from a fourth-down snap to the next snap, by what happened.
+
+    Measured in the 1st and 3rd quarters, where the end-of-half clock rules don't apply.
+    """
+    p = plays[plays.down.notna()].sort_values(["game_id", "game_seconds_remaining"], ascending=[True, False])
+    nxt = p.groupby("game_id")[["game_seconds_remaining", "qtr"]].shift(-1)
+    p = p.assign(used=p.game_seconds_remaining - nxt.game_seconds_remaining, same_qtr=nxt.qtr == p.qtr)
+    f = p[(p.down == 4) & p.qtr.isin([1, 3]) & p.same_qtr]
+    went = f.play_type.isin(["pass", "run"])
+    converted = (f.first_down_rush == 1) | (f.first_down_pass == 1)
+    return {
+        "convert": float(f.used[went & converted].median()),
+        "fail": float(f.used[went & ~converted & (f.touchdown != 1)].median()),
+        "fg_made": float(f.used[(f.play_type == "field_goal") & (f.field_goal_result == "made")].median()),
+        "fg_missed": float(f.used[(f.play_type == "field_goal") & (f.field_goal_result != "made")].median()),
+        "punt": float(f.used[f.play_type == "punt"].median()),
+    }
+
+
+def _fit_submodels(plays):
+    """Everything besides win probability: what each choice leads to, measured from the plays."""
+    tries = plays[plays.down.isin([3, 4]) & plays.play_type.isin(["pass", "run"]) & (plays.qb_kneel != 1)]
+    converted = (
+        (tries.first_down_rush == 1)
+        | (tries.first_down_pass == 1)
+        | ((tries.touchdown == 1) & (tries.td_team == tries.posteam))
+    )
+    conversion = LogisticRegression().fit(conversion_x(tries.ydstogo, tries.yardline_100), converted)
+
+    q = (np.arange(N_QUANTILES) + 0.5) / N_QUANTILES
+    made = tries[converted & (tries.yardline_100 >= 40)]
+    distance = made.ydstogo.clip(upper=MAX_DISTANCE)
+    gains = np.array([np.quantile(made.yards_gained[distance == d], q) for d in range(1, MAX_DISTANCE + 1)])
+
+    kicks = plays[plays.play_type == "field_goal"]
+    fg = LogisticRegression(C=1e4, max_iter=5000).fit(fg_x(kicks.kick_distance, kicks.season),
+                                                      kicks.field_goal_result == "made")
+
+    # punts: quantiles of where the other team takes over, per 5-yard bin of where it was kicked from
+    punts = plays[(plays.play_type == "punt") & (plays.punt_blocked == 0) & plays.kick_distance.notna()]
+    landing = punts.yardline_100 - punts.kick_distance + punts.return_yards.fillna(0)
+    takeover = pd.Series(np.where(punts.touchback == 1, 80, 100 - landing).clip(1, 99), index=punts.index)
+    bins = (punts.yardline_100 // 5) * 5 + 2.5
+    punt = takeover.groupby(bins).apply(lambda t: np.quantile(t, q))
+    punt = punt[takeover.groupby(bins).size() >= 50]
+
+    first_snaps = plays[plays.down == 1].groupby(["game_id", "fixed_drive"]).head(1)
+    kickoff = first_snaps[first_snaps.drive_start_transition == "KICKOFF"]
+
+    return {
+        "conversion": conversion,
+        "gains": gains,
+        "fg": fg,
+        "fg_longest": float(kicks.kick_distance.max()),
+        "punt": (punt.index.to_numpy(), np.vstack(punt.to_numpy())),
+        "kickoff_start": kickoff.groupby("season").yardline_100.mean().to_dict(),
+        "clock": _clock_used(plays),
+    }
+
+
+def _logistic(params):
+    m = LogisticRegression()
+    m.classes_ = np.array([False, True])
+    m.coef_ = np.array(params["coef"])
+    m.intercept_ = np.array(params["intercept"])
+    m.n_features_in_ = m.coef_.shape[1]
+    return m
+
+
+def _submodels_to_json(sub):
+    return {
+        "conversion": {"coef": sub["conversion"].coef_.tolist(), "intercept": sub["conversion"].intercept_.tolist()},
+        "fg": {"coef": sub["fg"].coef_.tolist(), "intercept": sub["fg"].intercept_.tolist()},
+        "gains": sub["gains"].tolist(),
+        "fg_longest": sub["fg_longest"],
+        "punt": [sub["punt"][0].tolist(), sub["punt"][1].tolist()],
+        "kickoff_start": {str(k): v for k, v in sub["kickoff_start"].items()},
+        "clock": sub["clock"],
+    }
+
+
+def _submodels_from_json(d):
+    return {
+        "conversion": _logistic(d["conversion"]),
+        "fg": _logistic(d["fg"]),
+        "gains": np.array(d["gains"]),
+        "fg_longest": d["fg_longest"],
+        "punt": (np.array(d["punt"][0]), np.array(d["punt"][1])),
+        "kickoff_start": {int(k): v for k, v in d["kickoff_start"].items()},
+        "clock": d["clock"],
+    }
