@@ -1,7 +1,8 @@
 """nflfastR's win-probability model (wp_model_spread from the fastrmodels R package, MIT).
 
-scripts/get_wp_model.py writes the model file. Its 12 inputs, in the order the model was trained on,
-are built here from the same game-state columns the rest of the project uses.
+The model file is committed; scripts/get_wp_model.py records where it came from and rebuilds it.
+Its 12 inputs, in the order the model was trained on, are built here from the same game-state
+columns the rest of the project uses.
 """
 
 from pathlib import Path
