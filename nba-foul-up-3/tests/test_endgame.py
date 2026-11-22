@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from foulup3.endgame import EndGame
+from foulup3.endgame import EndGame, choose_bandwidth
 
 H = 2.0  # bandwidth for the toy end games
 TIMES = np.arange(1, 25)  # a possession starting at every second
@@ -72,3 +72,22 @@ def test_the_same_seed_gives_the_same_intervals():
     first, again, other = (EndGame(possessions, H, resamples=3, seed=s).calls() for s in [7, 7, 8])
     pd.testing.assert_frame_equal(first, again)
     assert not np.allclose(first.gap_low, other.gap_low)
+
+
+def test_the_bandwidth_choice_picks_the_lowest_held_out_log_loss():
+    # tied games end one way before 12 seconds and another after, so a narrow window fits
+    def season(games):
+        out = []
+        for g in range(games):
+            for t0 in TIMES:
+                label = "early" if t0 <= 12 else "late"
+                out.append(dict(game_id=g, d0=0, t0=float(t0), t1=t0 - 0.1, delta=0, next="none",
+                                action="defend", result="made", label=label))  # fmt: skip
+        return pd.DataFrame(out)
+
+    h, scores = choose_bandwidth(season(40), season(10), [1.0, 0.05, 0.5])
+    assert h == 0.05
+    assert list(scores.columns) == ["bandwidth", "possessions", "log_loss"]
+    assert scores.bandwidth.tolist() == [1.0, 0.05, 0.5]
+    assert (scores.possessions == 10 * len(TIMES)).all()
+    assert scores.log_loss[scores.bandwidth == h].item() == scores.log_loss.min()
