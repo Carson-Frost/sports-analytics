@@ -41,7 +41,7 @@ go    31.4%
 fg    21.8%  (63 yards)
 punt  17.1%
 
-Go for it: +9.6 over a field goal (90%: +6.9 to +12.0). Clear call.
+Go for it: +9.6 over a field goal (90%: +6.9 to +12.1). Clear call.
 ```
 
 Optional: `--timeouts`, `--opp-timeouts`, `--spread`, `--home`, `--gets-second-half-kickoff`.
