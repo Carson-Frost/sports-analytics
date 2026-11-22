@@ -7,12 +7,10 @@ import argparse
 import json
 from pathlib import Path
 
-from fourth_down.decide import FG_OFFSET
-from fourth_down.grading import Grader, situation
+from fourth_down.grading import FG_OFFSET, NAME, Grader, situation
 from fourth_down.wp import WinProbability
 
 ROOT = Path(__file__).resolve().parents[1]
-NAME = {"go": "Go for it", "fg": "Field goal", "punt": "Punt"}
 OTHER = {"go": "going for it", "fg": "a field goal", "punt": "a punt"}
 
 
@@ -28,21 +26,21 @@ def main():
     p.add_argument("--spread", type=float, default=0.0, help="points the offense was favored by")
     p.add_argument("--home", type=int, choices=[0, 1], help="1 if the offense is at home")
     p.add_argument("--gets-second-half-kickoff", action="store_true")
-    a = p.parse_args()
+    args = p.parse_args()
 
     grader = Grader.from_json(WinProbability(), json.loads((ROOT / "models" / "submodels.json").read_text()))
-    state = situation(a.distance, a.spot, a.quarter, a.clock, a.score, a.timeouts, a.opp_timeouts, a.spread,
-                      a.home, a.gets_second_half_kickoff)
-    g = grader.grade(state).iloc[0]
+    state = situation(args.distance, args.spot, args.quarter, args.clock, args.score, args.timeouts,
+                      args.opp_timeouts, args.spread, args.home, args.gets_second_half_kickoff)
+    graded = grader.grade(state).iloc[0]
     kick_yards = state.yardline_100.iloc[0] + FG_OFFSET
 
-    print(f"go    {100 * g.go:.1f}%")
-    fg = f"{100 * g.fg:.1f}%" if kick_yards <= grader.point["fg_longest"] else "-"
+    print(f"go    {100 * graded.go:.1f}%")
+    fg = f"{100 * graded.fg:.1f}%" if kick_yards <= grader.point["fg_longest"] else "-"
     print(f"fg    {fg}  ({kick_yards:.0f} yards)")
-    print(f"punt  {100 * g.punt:.1f}%")
-    verdict = "Clear call." if g.clear else "Toss-up."
-    print(f"\n{NAME[g.call]}: +{100 * g.gap:.1f} over {OTHER[g.runner_up]} "
-          f"(90%: {100 * g.gap_low:+.1f} to {100 * g.gap_high:+.1f}). {verdict}")
+    print(f"punt  {100 * graded.punt:.1f}%")
+    verdict = "Clear call." if graded.clear else "Toss-up."
+    print(f"\n{NAME[graded.call]}: +{100 * graded.gap:.1f} over {OTHER[graded.runner_up]} "
+          f"(90%: {100 * graded.gap_low:+.1f} to {100 * graded.gap_high:+.1f}). {verdict}")
 
 
 if __name__ == "__main__":
