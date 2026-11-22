@@ -1,8 +1,8 @@
 """Possession outcome probabilities from the game state, and the exact end game they imply.
 
 The state is the margin for the team with the ball and the seconds left. For each state, the
-chance of every segment outcome (points, who has the ball next, seconds used) is the observed mix
-of segments from the same kind of state that started at about the same time. The end game is then
+chance of every possession outcome (points, who has the ball next, seconds used) is the observed mix
+of possessions from the same kind of state that started at about the same time. The end game is then
 solved exactly, tenth of a second by tenth of a second, from the buzzer backwards.
 
 Every result has three outcomes for the team with the ball: it wins at the buzzer, the game goes
@@ -15,7 +15,7 @@ import pandas as pd
 STEP = 0.1  # seconds per grid point
 HORIZON = 24.0
 MAX_MARGIN = 15  # margins beyond this are treated as this
-MIN_SEGMENTS = 30  # widen the window until at least this many segments count
+MIN_POSSESSIONS = 30  # widen the window until at least this many possessions count
 FLOOR = 0.5  # narrowest window, in seconds
 CLOSE = 9  # every margin up to this gets its own outcome mix; wider ones share one
 
@@ -32,48 +32,48 @@ def state_class(margin: int, action: str = "defend") -> str:
     return "tied" if margin == 0 else f"{'up' if margin > 0 else 'down'} {abs(margin)}"
 
 
-def buzzer_margin(segs: pd.DataFrame) -> pd.Series:
-    """For each segment, the margin for its team with the ball when its period ended."""
-    last = segs.groupby(["game_id", "period"]).tail(1)
+def buzzer_margin(possessions: pd.DataFrame) -> pd.Series:
+    """For each possession, the margin for its team with the ball when its period ended."""
+    last = possessions.groupby(["game_id", "period"]).tail(1)
     final = (last.d0 + last.delta).to_numpy()
     end = pd.DataFrame(dict(game_id=last.game_id, period=last.period, team=last.off, final=final))
-    m = segs[["game_id", "period"]].merge(end, how="left").set_index(segs.index)
-    return m.final.where(m.team == segs.off, -m.final)
+    m = possessions[["game_id", "period"]].merge(end, how="left").set_index(possessions.index)
+    return m.final.where(m.team == possessions.off, -m.final)
 
 
 TIMEOUT_STATES = ["has a timeout", "no timeout"]  # the trailing team's, at down 3
 
 
-def by_timeouts(segs: pd.DataFrame) -> dict[str, pd.DataFrame]:
-    """The segments each timeout state is built from. Down-3 segments go to the state matching
-    the trailing team's timeouts left; every other segment goes to both. Down 3, a team with a
+def by_timeouts(possessions: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """The possessions each timeout state is built from. Down-3 possessions go to the state matching
+    the trailing team's timeouts left; every other possession goes to both. Down 3, a team with a
     timeout can move the ball to half court, and one without has to go the length of the floor."""
-    down3 = segs.d0 == -3
-    return {"has a timeout": segs[~down3 | (segs.timeouts > 0)],
-            "no timeout": segs[~down3 | (segs.timeouts == 0)]}  # fmt: skip
+    down3 = possessions.d0 == -3
+    return {"has a timeout": possessions[~down3 | (possessions.timeouts > 0)],
+            "no timeout": possessions[~down3 | (possessions.timeouts == 0)]}  # fmt: skip
 
 
-def decisions(segs: pd.DataFrame) -> pd.DataFrame:
+def decisions(possessions: pd.DataFrame) -> pd.DataFrame:
     """Every time the trailing team got the ball down 3 with 24 seconds or less left, and how
     it ended for the team up 3: "win", "overtime" or "loss" at the buzzer."""
-    d = segs[(segs.d0 == -3) & (segs.how == "change") & (segs.t0 > 0)]
-    lead = -buzzer_margin(segs).loc[d.index]
+    d = possessions[(possessions.d0 == -3) & (possessions.how == "change") & (possessions.t0 > 0)]
+    lead = -buzzer_margin(possessions).loc[d.index]
     ending = np.where(lead > 0, "win", np.where(lead < 0, "loss", "overtime"))
     return d.assign(ending=ending, leader_won=lead > 0)
 
 
-def outcome_arrays(segs: pd.DataFrame) -> dict[str, dict[str, np.ndarray]]:
-    """Per state class: each segment's start time, margin change, next possession, tenths of a
+def outcome_arrays(possessions: pd.DataFrame) -> dict[str, dict[str, np.ndarray]]:
+    """Per state class: each possession's start time, margin change, next possession, tenths of a
     second used and label, whether it ended in a miss at the buzzer, and the share of misses
     rebounded by the offense. Fouls with no free throws at down 3 are set aside."""
-    segs = segs[(segs.t0 > 0) & (segs.result != "lost")]
-    segs = segs[~((segs.d0 == -3) & (segs.action == "foul to give"))]
+    possessions = possessions[(possessions.t0 > 0) & (possessions.result != "lost")]
+    possessions = possessions[~((possessions.d0 == -3) & (possessions.action == "foul to give"))]
     # misses rebounded with time to use the ball (0.5 s or more): how often the offense gets it
-    rebounded = segs.result.str.endswith(("oreb", "dreb"))
-    oreb_share = segs.result[rebounded].str.endswith("oreb").mean()
-    cls = [state_class(d, a) for d, a in zip(segs.d0, segs.action, strict=True)]
+    rebounded = possessions.result.str.endswith(("oreb", "dreb"))
+    oreb_share = possessions.result[rebounded].str.endswith("oreb").mean()
+    cls = [state_class(d, a) for d, a in zip(possessions.d0, possessions.action, strict=True)]
     out = {}
-    for name, g in segs.groupby(np.array(cls)):
+    for name, g in possessions.groupby(np.array(cls)):
         out[name] = dict(
             t0=g.t0.to_numpy(float),
             delta=g.delta.to_numpy(int),
@@ -87,12 +87,12 @@ def outcome_arrays(segs: pd.DataFrame) -> dict[str, dict[str, np.ndarray]]:
 
 
 def weights(t0: np.ndarray, t: float, bandwidth: float) -> np.ndarray:
-    """Triangular weights on segments that started near t. The window is a share of the time
-    left (`bandwidth`), at least FLOOR seconds, and widened to reach MIN_SEGMENTS. It narrows near
-    the buzzer, where a second changes what a possession can do. The share is chosen on held-out
-    seasons in scripts/analyze.py."""
+    """Triangular weights on possessions that started near t. The window is a share of the time
+    left (`bandwidth`), at least FLOOR seconds, and widened to reach MIN_POSSESSIONS. It narrows
+    near the buzzer, where a second changes what a possession can do. The share is chosen on
+    held-out seasons in scripts/analyze.py."""
     gap = np.abs(t0 - t)
-    k = min(MIN_SEGMENTS, len(gap)) - 1
+    k = min(MIN_POSSESSIONS, len(gap)) - 1
     radius = max(bandwidth * t, FLOOR, np.partition(gap, k)[k] + 1e-9)
     w = np.clip(1 - gap / radius, 0, None)
     return w / w.sum()
@@ -107,10 +107,10 @@ def terminal(margin):
 
 def after(value: np.ndarray, a: dict, margin: int, i: int) -> np.ndarray:
     """Chances to win and to lose at the buzzer for the team that had the ball, after each
-    segment in `a`, starting from `margin` at grid point i. `value` holds both, for every margin
+    possession in `a`, starting from `margin` at grid point i. `value` holds both, for every margin
     and grid point: value[0] to win and value[1] to lose.
 
-    A segment borrowed from a nearby start time keeps its own seconds used. One where the clock
+    A possession borrowed from a nearby start time keeps its own seconds used. One where the clock
     ran out ("none") ended the game only because it started later than i, so here it just uses
     its seconds with the same team holding the ball. A miss at the buzzer, borrowed with time
     left, is rebounded by the offense at the usual offensive rebound share. One longer than the

@@ -1,8 +1,8 @@
-"""Parse every regular-season game in the bundles into late 4th-quarter and overtime segments.
+"""Parse every regular-season game in the bundles into late 4th-quarter and overtime possessions.
 
 Stops if a bundle differs from data/manifest.csv, since the results would no longer match.
-Writes data/derived/games.parquet and data/derived/segments.parquet. From 2017-18, when the
-current timeout rules began, each segment also has the timeouts both teams have left.
+Writes data/derived/games.parquet and data/derived/possessions.parquet. From 2017-18, when the
+current timeout rules began, each possession also has the timeouts both teams have left.
 """
 
 import csv
@@ -18,7 +18,7 @@ from foulup3.pbp import (
     TIMEOUT_RULES_FROM,
     action,
     clean,
-    game_segments,
+    game_possessions,
     home_team,
     label,
     scores,
@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw"
 MANIFEST = ROOT / "data" / "manifest.csv"
 OUT = ROOT / "data" / "derived"
-MAX_SECONDS = 24  # only segments that start with 24 seconds or less left in the period
+MAX_SECONDS = 24  # only possessions that start with 24 seconds or less left in the period
 COLUMNS = ["clock", "period", "teamId", "scoreHome", "scoreAway", "description", "actionType",
            "subType", "shotValue"]  # fmt: skip
 
@@ -47,7 +47,7 @@ def check_manifest():
 
 
 def season(season: str) -> tuple[list[dict], list[dict]]:
-    """Games and segments for one season, read straight from its bundle."""
+    """Games and possessions for one season, read straight from its bundle."""
     year = int(season[:4]) + 1  # bundles are named by the year the season ends
     log, pbps = None, {}
     with tarfile.open(RAW / f"nba_stats_json_{year}.tar.gz") as tar:
@@ -59,7 +59,7 @@ def season(season: str) -> tuple[list[dict], list[dict]]:
                 actions = json.load(tar.extractfile(m))["game"]["actions"]
                 if actions:  # the April 2013 Celtics-Pacers game was never played
                     pbps[m.name.split("/")[-1][:-5]] = clean(pd.DataFrame(actions)[COLUMNS])
-    games, segs = [], []
+    games, possessions = [], []
     for game_id, two in log.groupby("GAME_ID"):
         if game_id not in pbps:
             continue
@@ -76,17 +76,17 @@ def season(season: str) -> tuple[list[dict], list[dict]]:
         other = {h.TEAM_ID: a.TEAM_ID, a.TEAM_ID: h.TEAM_ID}
         left = {team: timeouts_left(pbp, nick) for team, nick in names.items()}
         known = season >= TIMEOUT_RULES_FROM
-        for s in game_segments(pbp, h.TEAM_ID, a.TEAM_ID, names):
+        for s in game_possessions(pbp, h.TEAM_ID, a.TEAM_ID, names):
             if s["t0"] <= MAX_SECONDS:
                 won = (h.PTS > a.PTS) == (s["off"] == h.TEAM_ID)
                 timeouts = left[s["off"]](s["period"], s["t0"]) if known else None
                 opp = left[other[s["off"]]](s["period"], s["t0"]) if known else None
-                segs.append(dict(s, game_id=game_id, season=season, action=action(s),
+                possessions.append(dict(s, game_id=game_id, season=season, action=action(s),
                                  label=label(s["result"], s["made"], s["fta"], s["ftm"], s["next"]),
                                  offense_won=won, timeouts=timeouts,
                                  opp_timeouts=opp))  # fmt: skip
-    print(f"{season}: {len(games)} games, {len(segs)} segments", flush=True)
-    return games, segs
+    print(f"{season}: {len(games)} games, {len(possessions)} possessions", flush=True)
+    return games, possessions
 
 
 def main():
@@ -94,13 +94,13 @@ def main():
     with ProcessPoolExecutor() as pool:
         parts = list(pool.map(season, SEASONS))
     games = pd.DataFrame([g for p in parts for g in p[0]])
-    segs = pd.DataFrame([s for p in parts for s in p[1]]).drop(columns=["n", "foul_t"])
-    segs = segs.astype({"d0": int, "delta": int, "off": int})
+    possessions = pd.DataFrame([s for p in parts for s in p[1]]).drop(columns=["n", "foul_t"])
+    possessions = possessions.astype({"d0": int, "delta": int, "off": int})
     OUT.mkdir(parents=True, exist_ok=True)
     games.to_parquet(OUT / "games.parquet", index=False)
-    segs.to_parquet(OUT / "segments.parquet", index=False)
-    print(f"{len(games):,} games, {len(segs):,} segments; final score differs from the game log "
-          f"in {(~games.score_matches).sum()} games")  # fmt: skip
+    possessions.to_parquet(OUT / "possessions.parquet", index=False)
+    print(f"{len(games):,} games, {len(possessions):,} possessions; final score differs from the "
+          f"game log in {(~games.score_matches).sum()} games")  # fmt: skip
 
 
 if __name__ == "__main__":
