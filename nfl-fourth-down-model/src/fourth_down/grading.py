@@ -3,20 +3,40 @@
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import SplineTransformer
 
-from fourth_down.decide import (
-    CHOICES,
-    FG_OFFSET,
-    MAX_DISTANCE,
-    N_QUANTILES,
-    TD_POINTS,
-    conversion_x,
-    fg_x,
-)
+FIRST_SEASON = 2015
+FG_OFFSET = 18  # kick distance = yard line + 18 in nflverse (10 yards of end zone, 8 of snap)
+TD_POINTS = 7
+N_QUANTILES = 10
+CHOICES = ["go", "fg", "punt"]
+NAME = {"go": "Go for it", "fg": "Field goal", "punt": "Punt"}
+_MAX_DISTANCE = 15
+_FIELD_ZONES = [5, 10, 20]  # conversion rates differ inside each of these
+_FG_KNOTS = np.array([[18.0], [30.0], [40.0], [50.0], [58.0], [66.0]])
+_FG_SPLINE = SplineTransformer(degree=3, knots=_FG_KNOTS, extrapolation="linear").fit(_FG_KNOTS)
 
 CLEAR = 0.01  # a Clear Call beats the next-best Choice by at least a point across the middle 90% of Resamples
 LOW, HIGH = 5, 95  # percentiles of a 90% interval
 RESAMPLES = 200
+
+
+def choice(play_type):
+    """What the coach did, in the model's terms."""
+    return play_type.map({"pass": "go", "run": "go", "field_goal": "fg", "punt": "punt"})
+
+
+def conversion_x(ydstogo, yardline_100):
+    """One rate per distance from 1 to 9 yards (10 or more share one), shifted by field zone."""
+    d = np.minimum(ydstogo, 10)
+    zones = [np.asarray(yardline_100) <= z for z in _FIELD_ZONES]
+    return np.column_stack([d == k for k in range(1, 10)] + zones)
+
+
+def _fg_x(distance, season):
+    """A curve in distance, plus season and distance x season: kickers keep improving."""
+    distance, years = np.asarray(distance, dtype=float), np.asarray(season) - 2020
+    return np.column_stack([_FG_SPLINE.transform(distance.reshape(-1, 1)), years, (distance - 40) * years])
 
 
 def situation(distance, spot, quarter, clock, score, timeouts=3, opp_timeouts=3, spread=0.0, home=None,
@@ -196,7 +216,7 @@ def _choice_wp(model, sub, s):
 
     # go for it
     p_go = sub["conversion"].predict_proba(conversion_x(togo, yl))[:, 1]
-    gains = sub["gains"][np.minimum(togo, MAX_DISTANCE).astype(int) - 1]
+    gains = sub["gains"][np.minimum(togo, _MAX_DISTANCE).astype(int) - 1]
     spot = (yl[:, None] - gains).ravel()
     rep = np.repeat(np.arange(n), N_QUANTILES)
     g, h = clock("convert")
@@ -209,7 +229,7 @@ def _choice_wp(model, sub, s):
     # field goal
     # no make chance beyond the longest attempt in the data: the curve can't be trusted out there
     distance = yl + FG_OFFSET
-    p_fg = np.where(distance > sub["fg_longest"], 0.0, sub["fg"].predict_proba(fg_x(distance, s.season))[:, 1])
+    p_fg = np.where(distance > sub["fg_longest"], 0.0, sub["fg"].predict_proba(_fg_x(distance, s.season))[:, 1])
     kick_spot = yl + FG_OFFSET - 10
     fg = p_fg * theirs(3, ko, "fg_made") + (1 - p_fg) * theirs(0, 100 - np.maximum(kick_spot, 20), "fg_missed")
 
@@ -254,11 +274,11 @@ def _fit_submodels(plays):
 
     q = (np.arange(N_QUANTILES) + 0.5) / N_QUANTILES
     made = tries[converted & (tries.yardline_100 >= 40)]
-    distance = made.ydstogo.clip(upper=MAX_DISTANCE)
-    gains = np.array([np.quantile(made.yards_gained[distance == d], q) for d in range(1, MAX_DISTANCE + 1)])
+    distance = made.ydstogo.clip(upper=_MAX_DISTANCE)
+    gains = np.array([np.quantile(made.yards_gained[distance == d], q) for d in range(1, _MAX_DISTANCE + 1)])
 
     kicks = plays[plays.play_type == "field_goal"]
-    fg = LogisticRegression(C=1e4, max_iter=5000).fit(fg_x(kicks.kick_distance, kicks.season),
+    fg = LogisticRegression(C=1e4, max_iter=5000).fit(_fg_x(kicks.kick_distance, kicks.season),
                                                       kicks.field_goal_result == "made")
 
     # punts: quantiles of where the other team takes over, per 5-yard bin of where it was kicked from
