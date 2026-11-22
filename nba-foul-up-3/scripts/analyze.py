@@ -12,11 +12,7 @@ import numpy as np
 import pandas as pd
 
 from foulup3 import MODEL_SEASONS, SEASONS
-from foulup3.endgame import SHOWN, EndGame, buzzer_margin, down3_possessions
-
-# the private End game names are read by the bandwidth choice, until it moves behind EndGame
-from foulup3.endgame import _outcome_arrays as outcome_arrays
-from foulup3.endgame import _weights as weights
+from foulup3.endgame import SHOWN, EndGame, buzzer_margin, choose_bandwidth, down3_possessions
 
 ROOT = Path(__file__).resolve().parents[1]
 POSSESSIONS = ROOT / "data" / "derived" / "possessions.parquet"
@@ -46,34 +42,6 @@ def foul_rate(possessions: pd.DataFrame) -> pd.DataFrame:
                          fouled=int((g.action == "foul").sum())))  # fmt: skip
     out = pd.DataFrame(rows)
     return out.assign(share=out.fouled / out.possessions)
-
-
-def outcome_loss(train: dict, valid: dict, h: float) -> list[float]:
-    """Log loss of each held-out possession's outcome under the training mix, mixed 99 to 1 with
-    an even spread so no outcome scores zero."""
-    losses = []
-    for c, a in valid.items():
-        if c not in train:
-            continue
-        tr = train[c]
-        spread = 1 / len(np.unique(tr["label"]))
-        for t0, outcome in zip(a["t0"], a["label"], strict=True):
-            p = weights(tr["t0"], t0, h)[tr["label"] == outcome].sum()
-            losses.append(-np.log(0.99 * p + 0.01 * spread))
-    return losses
-
-
-def choose_bandwidth(possessions: pd.DataFrame) -> float:
-    """Fit on the first three model seasons and score the last two."""
-    train = outcome_arrays(possessions[possessions.season.isin(MODEL_SEASONS[:3])])
-    valid = outcome_arrays(possessions[possessions.season.isin(MODEL_SEASONS[3:])])
-    rows = []
-    for h in BANDWIDTHS:
-        losses = outcome_loss(train, valid, h)
-        rows.append(dict(bandwidth=h, segments=len(losses), log_loss=float(np.mean(losses))))
-    scores = pd.DataFrame(rows)
-    scores.to_csv(OUT / "bandwidth.csv", index=False, float_format="%.5f")
-    return float(scores.bandwidth[scores.log_loss.idxmin()])
 
 
 def calibration(possessions: pd.DataFrame, h: float) -> pd.DataFrame:
@@ -165,7 +133,13 @@ def main():
     foul_rate(every).to_csv(OUT / "foul_rate.csv", index=False, float_format="%.4f")
 
     possessions = every[every.season.isin(MODEL_SEASONS)].reset_index(drop=True)
-    h = choose_bandwidth(possessions)
+    # fit on the first three model seasons and score the last two; the published header says
+    # segments, the old word for possessions
+    h, scores = choose_bandwidth(possessions[possessions.season.isin(MODEL_SEASONS[:3])],
+                                 possessions[possessions.season.isin(MODEL_SEASONS[3:])],
+                                 BANDWIDTHS)  # fmt: skip
+    scores.rename(columns=dict(possessions="segments")).to_csv(OUT / "bandwidth.csv", index=False,
+                                                               float_format="%.5f")  # fmt: skip
     print(f"window {h} of the time left", flush=True)
     end = EndGame(possessions, h, seed=SEED)
     end.calls().to_csv(OUT / "win_probability.csv", index=False, float_format="%.4f")

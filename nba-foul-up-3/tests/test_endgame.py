@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from foulup3.endgame import EndGame, down3_possessions
+from foulup3.endgame import EndGame, choose_bandwidth, down3_possessions
 
 H = 2.0  # bandwidth for the toy end games
 TIMES = np.arange(1, 25)  # a possession starting at every second
@@ -138,3 +138,20 @@ def test_down_3_possessions_carry_the_choice_timeouts_and_buzzer_win_ending():
     d = down3_possessions(possessions)
     assert list(d.action) == ["defend", "foul"] and list(d.timeouts) == [1, 0]
     assert list(d.ending) == ["overtime", "win"] and list(d.leader_won) == [False, True]
+def test_the_bandwidth_choice_picks_the_lowest_held_out_log_loss():
+    # tied games end one way before 12 seconds and another after, so a narrow window fits
+    def season(games):
+        out = []
+        for g in range(games):
+            for t0 in TIMES:
+                label = "early" if t0 <= 12 else "late"
+                out.append(dict(game_id=g, d0=0, t0=float(t0), t1=t0 - 0.1, delta=0, next="none",
+                                action="defend", result="made", label=label))  # fmt: skip
+        return pd.DataFrame(out)
+
+    h, scores = choose_bandwidth(season(40), season(10), [1.0, 0.05, 0.5])
+    assert h == 0.05
+    assert list(scores.columns) == ["bandwidth", "possessions", "log_loss"]
+    assert scores.bandwidth.tolist() == [1.0, 0.05, 0.5]
+    assert (scores.possessions == 10 * len(TIMES)).all()
+    assert scores.log_loss[scores.bandwidth == h].item() == scores.log_loss.min()

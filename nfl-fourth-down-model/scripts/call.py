@@ -10,12 +10,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from fourth_down.decide import FG_OFFSET, choice_wp, submodels_from_json
+from fourth_down.decide import FG_OFFSET, submodels_from_json
+from fourth_down.grading import CLEAR, Grader
 from fourth_down.wp import WinProbability
 
 ROOT = Path(__file__).resolve().parents[1]
 SEASON = 2025
-CLEAR = 0.01
 
 
 def yardline_100(spot):
@@ -30,14 +30,14 @@ def state(a):
     left = int(m) * 60 + int(s)
     game = (4 - a.quarter) * 900 + left
     half = game - 1800 if a.quarter <= 2 else game
-    home = [1, 0] if a.home is None else [int(a.home)]  # unknown: average home and away
+    home = np.nan if a.home is None else a.home  # unknown: the grader averages home and away
     return pd.DataFrame({
         "score_differential": a.score, "game_seconds_remaining": game, "half_seconds_remaining": half,
         "yardline_100": yardline_100(a.spot), "down": 4, "ydstogo": a.distance,
         "posteam_timeouts_remaining": a.timeouts, "defteam_timeouts_remaining": a.opp_timeouts,
         "receive_2h_ko": int(a.gets_second_half_kickoff and a.quarter <= 2), "posteam_spread": a.spread,
         "season": SEASON, "home": home,
-    })
+    }, index=[0])
 
 
 def main():
@@ -55,16 +55,13 @@ def main():
     a = p.parse_args()
 
     saved = json.loads((ROOT / "models" / "submodels.json").read_text())
-    wp, s = WinProbability(), state(a)
-    point = choice_wp(wp, submodels_from_json(saved["point"]), s).mean()
-    edges = []
-    for d in saved["resamples"]:
-        w = choice_wp(wp, submodels_from_json(d), s).mean()
-        edges.append(w.go - max(w.fg, w.punt))
-    low, high = np.percentile(edges, [5, 95]) * 100
+    grader = Grader(WinProbability(), submodels_from_json(saved["point"]),
+                    [submodels_from_json(d) for d in saved["resamples"]])
+    point = grader.grade(state(a)).iloc[0]
+    low, high = point.edge_low * 100, point.edge_high * 100
 
     kick = "fg" if point.fg > point.punt else "punt"
-    edge = (point.go - point[kick]) * 100
+    edge = point.go_edge * 100
     kick_yards = yardline_100(a.spot) + FG_OFFSET
     in_range = kick_yards <= saved["point"]["fg_longest"]
 

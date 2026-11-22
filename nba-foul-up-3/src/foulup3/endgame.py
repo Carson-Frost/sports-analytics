@@ -254,3 +254,31 @@ class EndGame:
                              leader_wins_after=np.average(g.leader, weights=g.w),
                              possessions=len(g)))  # fmt: skip
         return pd.DataFrame(rows)
+
+def _held_out_losses(train: dict, held_out: dict, bandwidth: float) -> list[float]:
+    """Log loss of each held-out possession's outcome under the training mix, mixed 99 to 1 with
+    an even spread so no outcome scores zero."""
+    losses = []
+    for c, a in held_out.items():
+        if c not in train:
+            continue
+        tr = train[c]
+        spread = 1 / len(np.unique(tr["label"]))
+        for t0, outcome in zip(a["t0"], a["label"], strict=True):
+            p = _weights(tr["t0"], t0, bandwidth)[tr["label"] == outcome].sum()
+            losses.append(-np.log(0.99 * p + 0.01 * spread))
+    return losses
+
+
+def choose_bandwidth(train: pd.DataFrame, held_out: pd.DataFrame,
+                     bandwidths: list[float]) -> tuple[float, pd.DataFrame]:  # fmt: skip
+    """Score each candidate bandwidth by the mean log loss of the held-out possessions' outcomes
+    under the training possessions' mix. Returns the bandwidth with the lowest loss and the score
+    table (bandwidth, possessions scored, log_loss), one row per candidate in the order given."""
+    tr, ho = _outcome_arrays(train), _outcome_arrays(held_out)
+    rows = []
+    for h in bandwidths:
+        losses = _held_out_losses(tr, ho, h)
+        rows.append(dict(bandwidth=h, possessions=len(losses), log_loss=float(np.mean(losses))))
+    scores = pd.DataFrame(rows)
+    return float(scores.bandwidth[scores.log_loss.idxmin()]), scores
