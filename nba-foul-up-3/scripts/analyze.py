@@ -1,5 +1,5 @@
 """Solve the end game on the model seasons (2021-22 to 2025-26), once for a trailing team with a
-timeout left and once for one without, resample games for 90% intervals, and measure how often
+timeout left and once for one without, with 200 Resamples for 90% intervals, and measure how often
 teams up 3 fouled in every season since 1996-97.
 
 Writes to results/: foul_rate.csv, bandwidth.csv, win_probability.csv, calibration.csv,
@@ -12,25 +12,22 @@ import numpy as np
 import pandas as pd
 
 from foulup3 import MODEL_SEASONS, SEASONS
-from foulup3.model import (
-    STEP,
-    TIMEOUT_STATES,
-    after,
-    buzzer_margin,
-    by_timeouts,
-    decisions,
-    outcome_arrays,
-    solve,
-    weights,
-)
+
+# the private End game names are read by the bandwidth choice, calibration, the decision check
+# and the tree, until those move behind EndGame
+from foulup3.endgame import _STEP as STEP
+from foulup3.endgame import SHOWN, EndGame, buzzer_margin, decisions
+from foulup3.endgame import _after as after
+from foulup3.endgame import _by_timeouts as by_timeouts
+from foulup3.endgame import _fit as fit
+from foulup3.endgame import _outcome_arrays as outcome_arrays
+from foulup3.endgame import _solve as solve
+from foulup3.endgame import _weights as weights
 
 ROOT = Path(__file__).resolve().parents[1]
 POSSESSIONS = ROOT / "data" / "derived" / "possessions.parquet"
 OUT = ROOT / "results"
-RESAMPLES = 200
-LOW, HIGH = 5, 95  # percentiles of a 90% interval
 BANDWIDTHS = [0.15, 0.25, 0.35, 0.5, 0.75, 1.0]  # window as a share of the time left
-SHOWN = (1.0, 20.0)  # past 20 seconds there are too few fouls to estimate each second
 BANDS = [1, 5, 10, 20]  # clock bands for how often teams fouled
 TEST_SEASONS = SEASONS[-2:]  # the calibration check is scored on these
 SEED = 2026
@@ -86,26 +83,6 @@ def choose_bandwidth(possessions: pd.DataFrame) -> float:
     scores = pd.DataFrame(rows)
     scores.to_csv(OUT / "bandwidth.csv", index=False, float_format="%.5f")
     return float(scores.bandwidth[scores.log_loss.idxmin()])
-
-
-def fit(possessions: pd.DataFrame, h: float) -> dict[str, dict]:
-    """The solved end game for each timeout state of the trailing team."""
-    return {state: solve(outcome_arrays(s), h) for state, s in by_timeouts(possessions).items()}
-
-
-def resampled(possessions: pd.DataFrame, h: float) -> tuple[dict, dict]:
-    """Point estimates, and foul minus defend (chance to win at the buzzer) on 200 redraws of
-    the games, for each timeout state."""
-    rows = possessions.groupby("game_id").indices
-    games = np.array(list(rows))
-    point = fit(possessions, h)
-    rng = np.random.default_rng(SEED)
-    gaps = {state: [] for state in TIMEOUT_STATES}
-    for _ in range(RESAMPLES):
-        idx = np.concatenate([rows[g] for g in rng.choice(games, len(games))])
-        for state, r in fit(possessions.iloc[idx], h).items():
-            gaps[state].append(r["foul"] - r["defend"])
-    return point, {state: np.array(g) for state, g in gaps.items()}
 
 
 def calibration(possessions: pd.DataFrame, h: float) -> pd.DataFrame:
@@ -219,20 +196,8 @@ def main():
     possessions = every[every.season.isin(MODEL_SEASONS)].reset_index(drop=True)
     h = choose_bandwidth(possessions)
     print(f"window {h} of the time left", flush=True)
-    points, gaps = resampled(possessions, h)
-    tables = []
-    for state in TIMEOUT_STATES:
-        point = points[state]
-        lo, hi = np.percentile(gaps[state], [LOW, HIGH], axis=0)
-        seconds = point["seconds"]
-        shown = (seconds >= SHOWN[0] - 1e-9) & (seconds <= SHOWN[1] + 1e-9)
-        ot = {c: 1 - point[c] - point[f"{c}_loss"] for c in ["foul", "defend"]}
-        tables.append(pd.DataFrame(dict(
-            timeouts=state, seconds=seconds, foul=point["foul"], foul_ot=ot["foul"],
-            foul_loss=point["foul_loss"], defend=point["defend"], defend_ot=ot["defend"],
-            defend_loss=point["defend_loss"], gap=point["foul"] - point["defend"], gap_low=lo,
-            gap_high=hi))[shown])  # fmt: skip
-    pd.concat(tables).to_csv(OUT / "win_probability.csv", index=False, float_format="%.4f")
+    calls = EndGame(possessions, h, seed=SEED).calls()
+    calls.to_csv(OUT / "win_probability.csv", index=False, float_format="%.4f")
 
     calibration(possessions, h).to_csv(OUT / "calibration.csv", index=False, float_format="%.4f")
     decision_check(possessions, h).to_csv(OUT / "decision_check.csv", index=False,
