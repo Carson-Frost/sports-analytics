@@ -9,7 +9,9 @@ solved exactly, tenth of a second by tenth of a second, from the buzzer backward
 Every result has three outcomes for the team with the ball: it wins at the buzzer, the game goes
 to overtime, or it loses at the buzzer. A win means a win at the buzzer; overtime is not a win.
 
-`EndGame` is the public entry: fit it from possessions, then ask it for the Calls table.
+`EndGame` is the public entry: fit it from possessions, then ask it for the Calls table, a chance
+to win at the buzzer, or the outcome mix of one possession. `down3_possessions` gives the Choices
+teams made down 3.
 """
 
 import numpy as np
@@ -58,10 +60,14 @@ def _by_timeouts(possessions: pd.DataFrame) -> dict[str, pd.DataFrame]:
             "no timeout": possessions[~down3 | (possessions.timeouts == 0)]}  # fmt: skip
 
 
-def decisions(possessions: pd.DataFrame) -> pd.DataFrame:
-    """Every time the trailing team got the ball down 3 with 24 seconds or less left, and how
-    it ended for the team up 3: "win", "overtime" or "loss" at the buzzer."""
+def down3_possessions(possessions: pd.DataFrame) -> pd.DataFrame:
+    """Every time the trailing team got the ball down 3 with 24 seconds or less left and the
+    team up 3 made a Choice (fouled or defended; fouls to give are left out), with the trailing
+    team's timeouts, and how it ended for the team up 3: "win", "overtime" or "loss" at the
+    buzzer (`ending`), and `leader_won`. `possessions` must hold whole periods, so each game's
+    ending is known."""
     d = possessions[(possessions.d0 == -3) & (possessions.how == "change") & (possessions.t0 > 0)]
+    d = d[d.action.isin(["foul", "defend"])]
     lead = -buzzer_margin(possessions).loc[d.index]
     ending = np.where(lead > 0, "win", np.where(lead < 0, "loss", "overtime"))
     return d.assign(ending=ending, leader_won=lead > 0)
@@ -185,6 +191,7 @@ class EndGame:
                 for state, r in _fit(possessions.iloc[idx], bandwidth).items():
                     gaps[state].append(r["foul"] - r["defend"])
             self._gaps = {state: np.array(g) for state, g in gaps.items()}
+        self._possessions = possessions  # for the outcome mix
 
     def calls(self) -> pd.DataFrame:
         """For every tenth of a second in SHOWN and each timeout state of the trailing team: the
@@ -208,3 +215,42 @@ class EndGame:
             shown = (t.seconds >= SHOWN[0] - 1e-9) & (t.seconds <= SHOWN[1] + 1e-9)
             tables.append(t[shown])
         return pd.concat(tables, ignore_index=True)
+
+    def win_chance(self, margin, seconds, timeouts, opp_timeouts, choice=None) -> np.ndarray:
+        """The chance to win at the buzzer for the team with the ball, ahead by `margin` with
+        `seconds` left, holding `timeouts` against the other team's `opp_timeouts` (arrays or
+        scalars). The trailing team's timeouts pick the timeout state; at a tie both states are
+        averaged.
+
+        With `choice` ("foul" or "defend", per state), every state must be down 3, and the
+        chance is instead the team up 3's under that Choice."""
+        margin, timeouts, opp = (np.asarray(x) for x in [margin, timeouts, opp_timeouts])
+        i = np.round(np.asarray(seconds, float) / _STEP).astype(int)
+        if choice is None:
+            at = (np.clip(margin, -_MAX_MARGIN, _MAX_MARGIN) + _MAX_MARGIN, i)
+            p = {s: r["value"][0][at] for s, r in self._points.items()}
+        else:
+            foul = np.asarray(choice) == "foul"
+            p = {s: np.where(foul, r["foul"][i], r["defend"][i]) for s, r in self._points.items()}
+        trailing = np.where(margin < 0, timeouts, opp)
+        has, none = p["has a timeout"], p["no timeout"]
+        return np.where(margin == 0, (has + none) / 2, np.where(trailing > 0, has, none))
+
+    def outcome_mix(self, seconds: float, choice: str, timeouts: str) -> pd.DataFrame:
+        """Every outcome of the trailing team's possession down 3 with `seconds` left when the
+        team up 3 makes `choice` ("foul" or "defend") and the trailing team is in timeout state
+        `timeouts`: its chance, the seconds it took, the team up 3's chance to win at the buzzer
+        after it, and how many possessions it was seen in."""
+        arrays = _outcome_arrays(_by_timeouts(self._possessions)[timeouts])
+        a = arrays[f"down 3, {choice}"]
+        value, i = self._points[timeouts]["value"], int(round(seconds / _STEP))
+        w = _weights(a["t0"], seconds, self.bandwidth)
+        mix = pd.DataFrame(dict(label=a["label"], w=w, seconds=a["dt"] * _STEP,
+                                leader=_after(value, a, -3, i)[1]))  # fmt: skip
+        rows = []
+        for name, g in mix[mix.w > 0].groupby("label"):
+            rows.append(dict(outcome=name, chance=g.w.sum(),
+                             seconds=np.average(g.seconds, weights=g.w),
+                             leader_wins_after=np.average(g.leader, weights=g.w),
+                             possessions=len(g)))  # fmt: skip
+        return pd.DataFrame(rows)
