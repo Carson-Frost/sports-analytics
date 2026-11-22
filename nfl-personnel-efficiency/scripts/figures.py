@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from personnel import MAIN
 from personnel.charts import INK, MUTED, SERIES, WIDTH, margins, save, titled
 
 LIGHT_GREY = "#b4b2a9"
@@ -14,7 +15,6 @@ TITLE_OVER_TIME = "In 2025, No Heavier Grouping Clearly Differed From 11 Personn
 ROOT = Path(__file__).resolve().parents[1]
 R, F = ROOT / "results", ROOT / "figures"
 SOURCE = "Source: nflverse play-by-play and participation (NFL Next Gen Stats 2016-2022, FTN 2023-2025)"
-MAIN = ["11", "12", "13", "21", "22"]
 
 
 RAMP = ["#ffffff", "#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95"]  # light to dark blue
