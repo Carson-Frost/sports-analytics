@@ -16,8 +16,11 @@ MUTED = "#6f6e69"
 GRID = "#E3E3E0"
 TITLE, LABEL, CAPTION = 14, 10, 8.5
 WIDTH, DPI = 7.5, 200
-INSTALLED = {f.name for f in font_manager.fontManager.ttflist}
-FONT = next((f for f in ["Arial", "Liberation Sans"] if f in INSTALLED), "DejaVu Sans")  # same metrics
+# Liberation Sans (SIL OFL, Arial's metrics) ships in fonts/, so figures match on every machine
+FONTS = Path(__file__).resolve().parents[2] / "fonts"
+for ttf in sorted(FONTS.glob("*.ttf")):
+    font_manager.fontManager.addfont(ttf)
+FONT = "Liberation Sans"
 
 plt.rcParams.update({
     "font.family": FONT,

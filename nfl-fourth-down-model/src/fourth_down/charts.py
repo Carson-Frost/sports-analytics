@@ -6,6 +6,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib import font_manager  # noqa: E402
 
 ACCENT = "#2F6DB5"
 GREY = "#B4B2A9"
@@ -14,9 +15,14 @@ INK = "#15171D"
 MUTED = "#8A8A86"
 TITLE, LABEL, CAPTION = 14, 10.5, 8.5
 WIDTH, DPI = 7.5, 200
+# Liberation Sans (SIL OFL, Arial's metrics) ships in fonts/, so figures match on every machine
+FONTS = Path(__file__).resolve().parents[2] / "fonts"
+for ttf in sorted(FONTS.glob("*.ttf")):
+    font_manager.fontManager.addfont(ttf)
+FONT = "Liberation Sans"
 
 plt.rcParams.update({
-    "font.family": ["Liberation Sans", "Arial", "DejaVu Sans"],
+    "font.family": FONT,
     "font.size": LABEL,
     "axes.spines.top": False,
     "axes.spines.right": False,
