@@ -9,35 +9,21 @@ usage_by_team_season.csv and wp_window.csv.
 
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
-from personnel import SITUATIONS
+from personnel import HEAVIER, MAIN, MIN_PLAYS, SITUATIONS, WINDOW, prepare_plays
 from personnel.fit import Design, codes
+from personnel.resample import GroupMean, run
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAYS = ROOT / "data" / "plays.parquet"
 OUT = ROOT / "results"
-RESAMPLES = 200
-LOW, HIGH = 5, 95  # percentiles of a 90% interval
-WP = (0.10, 0.90)  # both teams still playing normally
-MIN_SHARE = 0.005  # groupings under 0.5% of plays are pooled as Other
-MIN_PLAYS = 50  # in one situation, groupings with fewer plays there are pooled as Other
 SEASON = 2025
-MAIN = ["11", "12", "13", "21", "22"]
 SEASONS = range(2016, 2026)
-
-
-def neutral(plays, lo=WP[0], hi=WP[1]):
-    return plays[plays.wp.between(lo, hi) & plays.epa.notna()].copy()
 
 
 def pooled(plays, keep):
     return plays.assign(grouping=plays.grouping.where(plays.grouping.isin(keep), "Other"))
-
-
-def interval(draws):
-    return np.nanpercentile(np.asarray(draws, dtype=float), [LOW, HIGH], axis=0)
 
 
 def shares(plays, by):
@@ -49,11 +35,7 @@ def shares(plays, by):
 def main():
     plays = pd.read_parquet(PLAYS)
     plays["game_code"], n_games = codes(plays.game_id)
-    raw = neutral(plays)
-    common = raw.grouping.value_counts(normalize=True)
-    keep = [g for g in common.index if common[g] >= MIN_SHARE]
-    n = pooled(raw, keep)
-    groupings = [*keep, "Other"]
+    n, groupings = prepare_plays(plays)
 
     designs = {
         ("all", "2016-2025"): Design(n, groupings),
@@ -67,114 +49,68 @@ def main():
         designs["all", str(season)] = Design(part, groupings)
         designs["run", str(season)] = Design(part[part["pass"] == 0], groupings)
         designs["dropback", str(season)] = Design(part[part["pass"] == 1], groupings)
-    sit_designs = {}
-    for sit in SITUATIONS:
-        part = raw[raw.situation == sit]
-        big = part.grouping.value_counts()
-        sit_keep = [g for g in big.index if big[g] >= MIN_PLAYS]  # goal-line packages get their own term
-        sit_designs[sit] = Design(pooled(part, sit_keep), [*sit_keep, "Other"])
+    estimators = dict(designs)
+    sit_plays = {}
+    for sit in SITUATIONS:  # goal-line groupings get their own term
+        sit_plays[sit] = prepare_plays(plays[plays.situation == sit], min_share=0, min_plays=MIN_PLAYS)
+        estimators["situation", sit] = Design(*sit_plays[sit])
 
     # rates per grouping, and each 2025 offense's EPA per play
-    g_code = pd.Categorical(n.grouping, categories=groupings).codes
-    dropback = n["pass"].to_numpy(dtype=float)
-    base = (n.defensive_backs <= 4).to_numpy(dtype=float)
-    box = n.defenders_in_box.to_numpy(dtype=float)
-    epa = n.epa.to_numpy(dtype=float)
-    t25 = n[n.season == SEASON]
-    team_code, _ = codes(t25.posteam)
-    teams = sorted(t25.posteam.unique())
+    dropback = n["pass"] == 1
+    rates = {"dropback": ("pass", None), "base": (n.defensive_backs <= 4, None), "epa_run": ("epa", ~dropback),
+             "epa_dropback": ("epa", dropback), "epa_all": ("epa", None),
+             "box": ("defenders_in_box", n.defenders_in_box.notna())}
+    for name, (values, among) in rates.items():
+        estimators["rate", name] = GroupMean(n, values, "grouping", among=among, labels=groupings)
+    estimators["team"] = GroupMean(n, "epa", "posteam", among=n.season == SEASON)
 
-    def rates(w):
-        w = w[n.game_code.to_numpy()]
-        def mean(v, among):
-            return np.bincount(g_code, weights=w * among * v, minlength=len(groupings)) / np.bincount(
-                g_code, weights=w * among, minlength=len(groupings))
-        everything = np.ones(len(w))
-        return [mean(dropback, everything), mean(base, everything), mean(epa, 1 - dropback), mean(epa, dropback),
-                mean(epa, everything)]
-
-    def box_mean(w):
-        w = w[n.game_code.to_numpy()] * ~np.isnan(box)
-        return np.bincount(g_code, weights=w * np.nan_to_num(box), minlength=len(groupings)) / np.bincount(
-            g_code, weights=w, minlength=len(groupings))
-
-    def team_epa(w):
-        w = w[t25.game_code.to_numpy()]
-        return np.bincount(team_code, weights=w * t25.epa.to_numpy()) / np.bincount(team_code, weights=w)
-
-    ones = np.ones(n_games)
-    point = {k: d.fit() for k, d in designs.items()}
-    sit_point = {k: d.fit() for k, d in sit_designs.items()}
-    point_rates, point_box, point_team = rates(ones), box_mean(ones), team_epa(ones)
-
-    rng = np.random.default_rng(2026)
-    draws = {k: [] for k in designs}
-    sit_draws = {k: [] for k in sit_designs}
-    rate_draws, box_draws, team_draws = [], [], []
-    for b in range(RESAMPLES):
-        w = np.bincount(rng.integers(0, n_games, n_games), minlength=n_games)
-        for k, d in designs.items():
-            draws[k].append(d.fit(w))
-        for k, d in sit_designs.items():
-            sit_draws[k].append(d.fit(w))
-        rate_draws.append(rates(w))
-        box_draws.append(box_mean(w))
-        team_draws.append(team_epa(w))
-        if b % 25 == 0:
-            print("resample", b, flush=True)
+    out = run(estimators, n_games, seed=2026)
 
     OUT.mkdir(exist_ok=True)
     rows = []
-    for (kind, period), est in point.items():
-        lo, hi = interval([d.reindex(est.index) for d in draws[kind, period]])
+    for (kind, period) in designs:
+        est = out[kind, period]
         part = n if kind == "all" else n[n["pass"] == (kind == "dropback")]
         bounds = [int(year) for year in period.split("-")]  # "2016-2025" or one season, "2016"
         part = part[part.season.between(bounds[0], bounds[-1])]
         count = part.grouping.value_counts()
-        for i, g in enumerate(est.index):
+        for g, r in est.iterrows():
             rows.append({"grouping": g, "play_type": kind, "seasons": period, "plays": int(count.get(g, 0)),
-                         "effect": est[g], "low": lo[i], "high": hi[i]})
+                         "effect": r.estimate, "low": r.low, "high": r.high})
     pd.DataFrame(rows).round(4).to_csv(OUT / "effects.csv", index=False)
 
-    usage = shares(plays, ["situation"])
     rows = []
-    for sit, est in sit_point.items():
-        lo, hi = interval([d.reindex(est.index) for d in sit_draws[sit]])
-        part = raw[raw.situation == sit]
-        count = pooled(part, [*est.index, "11"]).grouping.value_counts()
-        used = usage[usage.situation == sit].set_index("grouping").share
+    for sit in SITUATIONS:
+        part, sit_groupings = sit_plays[sit]
+        count = part.grouping.value_counts()
+        all_sit = plays[plays.situation == sit]
+        used = pooled(all_sit, sit_groupings).grouping.value_counts() / len(all_sit)
         rows.append({"situation": sit, "grouping": "11", "neutral_plays": int(count.get("11", 0)),
                      "share": used.get("11", 0.0), "effect": 0.0, "low": 0.0, "high": 0.0})
-        for i, g in enumerate(est.index):
-            share = used.drop(index=list(est.index.drop("Other")) + ["11"], errors="ignore").sum() if g == "Other" \
-                else used.get(g, 0.0)
-            rows.append({"situation": sit, "grouping": g, "neutral_plays": int(count.get(g, 0)), "share": share,
-                         "effect": est[g], "low": lo[i], "high": hi[i]})
+        for g, r in out["situation", sit].iterrows():
+            rows.append({"situation": sit, "grouping": g, "neutral_plays": int(count.get(g, 0)),
+                         "share": used.get(g, 0.0), "effect": r.estimate, "low": r.low, "high": r.high})
     pd.DataFrame(rows).round(4).to_csv(OUT / "situations.csv", index=False)
 
-    all_counts = pooled(plays, keep).grouping.value_counts()
-    rate_lo, rate_hi = interval([np.array(r) for r in rate_draws])
-    box_lo, box_hi = interval(box_draws)
+    all_counts = pooled(plays, groupings).grouping.value_counts()
     g = pd.DataFrame({
         "grouping": groupings,
         "plays": [int(all_counts.get(x, 0)) for x in groupings],
         "share": [all_counts.get(x, 0) / len(plays) for x in groupings],
         "neutral_plays": [int((n.grouping == x).sum()) for x in groupings],
-        "dropback_rate": point_rates[0], "dropback_low": rate_lo[0], "dropback_high": rate_hi[0],
-        "base_defense": point_rates[1], "base_low": rate_lo[1], "base_high": rate_hi[1],
-        "epa_run": point_rates[2], "epa_run_low": rate_lo[2], "epa_run_high": rate_hi[2],
-        "epa_dropback": point_rates[3], "epa_dropback_low": rate_lo[3], "epa_dropback_high": rate_hi[3],
-        "epa_all": point_rates[4], "epa_all_low": rate_lo[4], "epa_all_high": rate_hi[4],
-        "box": point_box, "box_low": box_lo, "box_high": box_hi,
     })
+    point_names = {"dropback": "dropback_rate", "base": "base_defense"}
+    for name in rates:
+        r = out["rate", name].to_numpy().T
+        g[point_names.get(name, name)], g[f"{name}_low"], g[f"{name}_high"] = r
     g.round(4).to_csv(OUT / "groupings.csv", index=False)
 
     mix = shares(plays[plays.season == SEASON].assign(
         grouping=lambda d: d.grouping.where(d.grouping.isin(MAIN), "Other")), ["posteam"])
     mix = mix.pivot(index="posteam", columns="grouping", values="share")[[*MAIN, "Other"]].fillna(0)
-    lo, hi = interval(team_draws)
-    teams_out = mix.loc[teams].assign(epa=point_team, low=lo, high=hi).sort_values("epa", ascending=False)
-    teams_out.round(4).rename_axis("team").to_csv(OUT / "teams_2025.csv")
+    team = out["team"]
+    teams_out = mix.loc[team.index].assign(epa=team.estimate, low=team.low, high=team.high)
+    teams_out.sort_values("epa", ascending=False).round(4).rename_axis("team").to_csv(OUT / "teams_2025.csv")
 
     family = plays.grouping.where(plays.grouping.isin(MAIN), "Other")
     six = plays.grouping.str.contains("6 OL") & (family == "Other")
@@ -187,11 +123,11 @@ def main():
     by_team.fillna(0).round(4).rename_axis(["team", "season"]).to_csv(OUT / "usage_by_team_season.csv")
 
     window = []
-    for lo_wp, hi_wp in [(0.0, 1.0), (0.05, 0.95), WP, (0.2, 0.8)]:
-        part = pooled(neutral(plays, lo_wp, hi_wp), keep)
-        est = Design(part, groupings).fit()
+    for lo_wp, hi_wp in [(0.0, 1.0), (0.05, 0.95), WINDOW, (0.2, 0.8)]:
+        part, part_groupings = prepare_plays(plays, window=(lo_wp, hi_wp))
+        est = Design(part, part_groupings).fit()
         window.append({"wp_low": lo_wp, "wp_high": hi_wp, "plays": len(part), **{f"effect_{x}": est[x] for x in
-                                                                                    ["12", "13", "21", "22"]}})
+                                                                                    HEAVIER}})
     pd.DataFrame(window).round(4).to_csv(OUT / "wp_window.csv", index=False)
     print(pd.read_csv(OUT / "effects.csv").query("seasons == '2016-2025'").to_string(index=False))
 

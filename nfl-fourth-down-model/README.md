@@ -21,8 +21,8 @@ punt = mean(wp(their_ball_after_each_punt))
 
 Conversion, gains, field goals, punts, kickoffs and clock are fit on 2015-2025 plays. Each fourth
 down is graded again on 200 resamples of the games. I set the bar for a clear call at
-1 percentage point for simplicity: the better option has to win by that much in the middle 90% of
-resamples.
+1 percentage point for simplicity: the best choice has to beat the runner-up by that much in the middle
+90% of resamples. Anything closer is a toss-up.
 
 ## Results
 
@@ -41,10 +41,11 @@ go    31.4%
 fg    21.8%  (63 yards)
 punt  17.1%
 
-Go for it: +9.6 over a field goal (90%: +6.9 to +12.0). Clear call.
+Go for it: +9.6 over a field goal (90%: +6.9 to +12.1). Clear call.
 ```
 
-Optional: `--timeouts`, `--opp-timeouts`, `--spread`, `--home`, `--gets-second-half-kickoff`.
+Optional: `--timeouts`, `--opp-timeouts`, `--spread`, `--home`, `--gets-second-half-kickoff`. Without
+`--home`, each choice's win probability is averaged over home and away.
 
 ## Limits
 
@@ -57,7 +58,6 @@ Optional: `--timeouts`, `--opp-timeouts`, `--spread`, `--home`, `--gets-second-h
 ```bash
 pip install -e ".[dev]"
 python scripts/pull.py
-python scripts/get_wp_model.py
 python scripts/build.py
 python scripts/grade.py      # about an hour
 python scripts/figures.py

@@ -6,7 +6,6 @@ Stops if a raw file differs from data/manifest.csv, since the results would no l
 import csv
 
 from fourth_down.data import PLAYS, RAW, ROOT, SEASONS, load
-from fourth_down.wp import MODEL
 
 MANIFEST = ROOT / "data" / "manifest.csv"
 
@@ -22,8 +21,6 @@ def check_manifest():
 
 def main():
     check_manifest()
-    if not MODEL.exists():
-        raise SystemExit("models/wp_model_spread.ubj is missing: run scripts/get_wp_model.py")
     plays = load(SEASONS)
     plays.to_parquet(PLAYS)
     print(f"{len(plays):,} plays, {plays.game_id.nunique():,} games, "

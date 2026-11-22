@@ -47,8 +47,8 @@ punt = mean(wp(their_ball_after_each_punt))
 
 Conversion, gains, field goals, punts, kickoffs and clock are fit on {first}-{last} plays. Each fourth
 down is graded again on 200 resamples of the games. I set the bar for a clear call at
-1 percentage point for simplicity: the better option has to win by that much in the middle 90% of
-resamples.
+1 percentage point for simplicity: the best choice has to beat the runner-up by that much in the middle
+90% of resamples. Anything closer is a toss-up.
 
 ## Results
 
@@ -66,7 +66,8 @@ python scripts/call.py {" ".join(f'"{x}"' if " " in x else x for x in EXAMPLE)}
 {example}
 ```
 
-Optional: `--timeouts`, `--opp-timeouts`, `--spread`, `--home`, `--gets-second-half-kickoff`.
+Optional: `--timeouts`, `--opp-timeouts`, `--spread`, `--home`, `--gets-second-half-kickoff`. Without
+`--home`, each choice's win probability is averaged over home and away.
 
 ## Limits
 
@@ -79,7 +80,6 @@ Optional: `--timeouts`, `--opp-timeouts`, `--spread`, `--home`, `--gets-second-h
 ```bash
 pip install -e ".[dev]"
 python scripts/pull.py
-python scripts/get_wp_model.py
 python scripts/build.py
 python scripts/grade.py      # about an hour
 python scripts/figures.py

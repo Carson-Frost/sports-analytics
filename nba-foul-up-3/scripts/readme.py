@@ -79,10 +79,14 @@ def main():
     wp = pd.read_csv(R / "win_probability.csv")
     wp = wp[np.isclose(wp.seconds, wp.seconds.round())]
     has, none = (wp[wp.timeouts == s].set_index("seconds") for s in ["has a timeout", "no timeout"])
-    assert set(has.index[has.gap_low > 0]) == set(range(1, 7)), "the with-timeout foul range changed"
-    assert set(has.index[has.gap_high < 0]) == set(range(15, 21)), "the with-timeout defend range changed"
-    assert set(none.index[none.gap_low > 0]) == set(range(2, 6)), "the no-timeout foul range changed"
-    assert set(none.index[none.gap_high < 0]) == set(range(14, 21)), "the no-timeout defend range changed"
+
+    def clear(t, call):
+        return set(t.index[t.clear & (t.call == call)])
+
+    assert clear(has, "foul") == set(range(1, 7)), "the with-timeout foul range changed"
+    assert clear(has, "defend") == set(range(15, 21)), "the with-timeout defend range changed"
+    assert clear(none, "foul") == set(range(2, 6)), "the no-timeout foul range changed"
+    assert clear(none, "defend") == set(range(14, 21)), "the no-timeout defend range changed"
     assert has.gap.loc[2] > none.gap.loc[2] + 0.04, "the 'fouling gains less' sentence no longer holds"
 
     fouled = pd.read_csv(R / "foul_share_by_second.csv").set_index("seconds")
@@ -140,8 +144,8 @@ game one possession at a time.
 - Down 3, the trailing team's outcomes come only from possessions where it had a timeout left, or
   only from ones where it had none. Timeouts are counted under the rules since 2017-18.
 - Whenever the team up 3 is up 3 again later in the game, the model has it take the choice with
-  the better Win%, and the trailing team's timeout state stays the same.
-- The 90% intervals come from a bootstrap: 200 rebuilds of the model, each on the games resampled
+  the better chance of a buzzer win, and the trailing team's timeout state stays the same.
+- The 90% intervals come from resamples: 200 rebuilds of the model, each on the games resampled
   with replacement. A choice is clearly better when the whole interval is on one side of zero.
 - Results stop at 20 seconds, past which there are too few fouls to estimate each second.
 - Fit without {seasons[-2]} and {seasons[-1]}, the model predicted who won at the buzzer on the
