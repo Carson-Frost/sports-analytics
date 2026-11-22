@@ -91,13 +91,13 @@ frequently. Where does this shift come from and is it justified?
 
 ![How often each 2025 offense used each personnel grouping](figures/teams_2025.png)
 
-Notably, the Rams used 13 personnel on {100 * top13["13"]:.0f}% of their plays ({rams_late}), the most by any team since
-2016, and a significant part of their dominant 2025 offense ({rams_rank} in EPA per play).
+The Rams used 13 personnel on {100 * top13["13"]:.0f}% of their plays ({rams_late}), the most by any team since
+2016, and part of an offense that ranked {rams_rank} in EPA per play.
 
 While 11 personnel was still clearly the most used personnel last season, {n_bad} of the top 10 teams in 11 personnel
 usage were in the bottom 10 in efficiency.
 
-Note, nearly three quarters of the Other category is groupings with a sixth offensive lineman.
+Nearly three quarters of the Other category is groupings with a sixth offensive lineman.
 
 The impacts of all this were felt in the offseason, where 9 TEs were drafted in the first 95 picks
 ([2026 draft](https://en.wikipedia.org/wiki/2026_NFL_draft)), showing teams' intentions to gain personnel flexibility.
