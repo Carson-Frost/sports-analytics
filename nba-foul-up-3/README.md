@@ -31,7 +31,7 @@ time.
 - Down 3, the trailing team's outcomes come only from possessions where it had a timeout left, or
   only from ones where it had none. Timeouts are counted under the rules since 2017-18.
 - Whenever the team up 3 is up 3 again later in the game, the model has it take the choice with the
-  better Win%, and the trailing team's timeout state stays the same.
+  better chance of a buzzer win, and the trailing team's timeout state stays the same.
 - The 90% intervals come from resamples: 200 rebuilds of the model, each on the games resampled with
   replacement. A choice is clearly better when the whole interval is on one side of zero.
 - Results stop at 20 seconds, past which there are too few fouls to estimate each second.
