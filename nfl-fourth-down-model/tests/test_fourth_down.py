@@ -115,22 +115,10 @@ def test_conversion_zones():
     assert x[:, 9:].tolist() == [[0, 0, 0], [0, 0, 1], [0, 1, 1], [1, 1, 1]]
 
 
-def test_resampled_games_stay_separate():
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location("grade", HERE.parent / "scripts" / "grade.py")
-    grade_script = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(grade_script)
-    plays = pd.DataFrame({"game_id": ["a", "a", "b"], "x": [1, 2, 3]})
-    out = grade_script.resample_games(plays, np.random.default_rng(0))
-    assert all(out.groupby("game_id").size().isin([1, 2]))  # a game drawn twice is two games
-
-
 def test_cost_of_the_coachs_choice():
     states = pd.concat([fourth_down(60, 4)] * 2).assign(coach=choice(pd.Series(["punt", "pass"])).to_numpy())
-    g, costs = Grader(ToyWP(), go_over_punt(0.012), [go_over_punt(0.012)] * 3).grade(states, resample_costs=True)
+    g = graded(go_over_punt(0.012), states)
     assert g.cost.tolist() == pytest.approx([0.012, 0.0])
-    assert costs == pytest.approx(np.array([[0.012, 0.0]] * 3))
 
 
 def test_no_field_goal_beyond_the_longest_attempt():
@@ -217,3 +205,60 @@ def test_an_unknown_home_side_averages_win_probabilities_before_the_gap():
     assert unknown.gap == pytest.approx(0.0091, abs=1e-4)
     assert sides.gap.mean() >= 0.01
     assert not unknown.clear
+
+
+def synthetic_plays(games=12, seed=0):
+    """A small season of plays with every kind of fourth-down outcome the submodels fit on."""
+    rng = np.random.default_rng(seed)
+    rows = []
+    for g in range(games):
+        clock = 3600
+        for i in range(75):
+            clock -= 40
+            kind = ["try", "try", "field_goal", "punt", "kickoff"][i % 5]
+            togo = 1 + (i // 5) % 15
+            yl = 40 + (i * 7) % 50
+            row = {"game_id": f"g{g}", "season": 2025, "posteam": "A", "qtr": 1 if clock > 2700 else 3,
+                   "game_seconds_remaining": clock, "down": 3 + i % 2, "ydstogo": togo, "yardline_100": yl,
+                   "play_type": "run", "qb_kneel": 0, "first_down_rush": 0, "first_down_pass": 0,
+                   "touchdown": 0, "td_team": None, "yards_gained": 0, "kick_distance": np.nan,
+                   "field_goal_result": None, "punt_blocked": 0, "return_yards": 0.0, "touchback": 0,
+                   "fixed_drive": i, "drive_start_transition": None}
+            if kind == "try":
+                made = rng.random() < 0.5
+                row.update(first_down_rush=int(made), yards_gained=togo + rng.integers(0, 10) if made else 0)
+            elif kind == "field_goal":
+                distance = 20 + rng.integers(0, 40)
+                row.update(play_type="field_goal", down=4, kick_distance=distance,
+                           field_goal_result="made" if rng.random() < 0.8 - distance / 100 else "missed")
+            elif kind == "punt":
+                row.update(play_type="punt", down=4, yardline_100=62, kick_distance=40 + rng.integers(0, 15))
+            else:
+                row.update(down=1, drive_start_transition="KICKOFF", yardline_100=65 + rng.integers(0, 15))
+            rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def test_a_fit_with_the_same_seed_gives_the_same_grades():
+    plays, states = synthetic_plays(), pd.concat([fourth_down(60, 4), fourth_down(30, 10)], ignore_index=True)
+    first = Grader.fit(ToyWP(), plays, resamples=3, seed=1).grade(states)
+    again = Grader.fit(ToyWP(), plays, resamples=3, seed=1).grade(states)
+    other = Grader.fit(ToyWP(), plays, resamples=3, seed=2).grade(states)
+    pd.testing.assert_frame_equal(first, again)
+    assert not first.gap_low.equals(other.gap_low)
+
+
+def test_a_game_drawn_twice_counts_twice_in_the_season_summary():
+    """Two clear-go spots: the team went in game a and punted in game b. Every Resample draws a twice."""
+    states = pd.concat([fourth_down(60, 4)] * 2, ignore_index=True).assign(
+        game_id=["a", "b"], coach=["go", "punt"])
+    sub = go_over_punt(0.012)
+    draws = [pd.Series({"a": 2, "b": 1})] * 3
+    graded, seasons = Grader(ToyWP(), sub, [sub] * 3, draws).grade_seasons(states)
+    assert graded.cost.tolist() == pytest.approx([0.0, 0.012])
+    s = seasons.set_index("season").loc[2025]
+    assert (s.fourth_downs, s.clear_calls, s.clear_go_spots) == (2, 2, 2)
+    assert s.clear_share == pytest.approx(100)
+    assert s.go_rate == pytest.approx(50)
+    assert s.go_rate_low == pytest.approx(200 / 3) and s.go_rate_high == pytest.approx(200 / 3)
+    assert s.wins_lost == pytest.approx(0.012)
