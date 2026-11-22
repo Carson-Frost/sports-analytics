@@ -24,20 +24,54 @@ TEAM_FOULS = re.compile(r"\.(?:T(\d+)|(PN))\)")  # "(P2.T3)": 3rd team foul, "(P
 BUZZER = 0.5  # a rebound with less than this left ends the trip: there is no time to use it
 LAST_TWO_MINUTES = 120
 TIMEOUT_RULES_FROM = "2017-18"  # 7 a game, at most 4 in the 4th, at most 2 in its last 3 minutes
+MAX_SECONDS = 24  # only possessions that start with 24 seconds or less left in the period
 
 
-def seconds(clock: str) -> float:
+def parse_game(
+    pbp: pd.DataFrame, log: pd.DataFrame, game_id: str, season: str
+) -> tuple[dict, list[dict]]:
+    """One game's record and its finished possessions, from its raw play-by-play rows and its two
+    game-log rows. Only possessions starting with MAX_SECONDS or less left are kept. From
+    TIMEOUT_RULES_FROM each carries the timeouts both teams have left, before that None."""
+    pbp = _clean(pbp)
+    home_id = _home_team(pbp)
+    h, a = log[log.TEAM_ID == home_id].iloc[0], log[log.TEAM_ID != home_id].iloc[0]
+    final = tuple(_scores(pbp).iloc[-1])
+    game = dict(game_id=game_id, season=season, date=h.GAME_DATE, home=h.TEAM_ID,
+                away=a.TEAM_ID, home_team=h.TEAM_NAME, away_team=a.TEAM_NAME,
+                home_pts=h.PTS, away_pts=a.PTS,
+                score_matches=final == (h.PTS, a.PTS))  # fmt: skip
+    # team rebounds and turnovers are written with the nickname: "CELTICS Rebound"
+    names = {t.TEAM_ID: t.TEAM_NAME.split()[-1].lower() for t in (h, a)}
+    other = {h.TEAM_ID: a.TEAM_ID, a.TEAM_ID: h.TEAM_ID}
+    left = {team: _timeouts_left(pbp, nick) for team, nick in names.items()}
+    known = season >= TIMEOUT_RULES_FROM
+    rows = []
+    for p in _game_possessions(pbp, h.TEAM_ID, a.TEAM_ID, names):
+        if p["t0"] > MAX_SECONDS:
+            continue
+        timeouts = left[p["off"]](p["period"], p["t0"]) if known else None
+        opp = left[other[p["off"]]](p["period"], p["t0"]) if known else None
+        row = dict(p, game_id=game_id, season=season, action=_action(p),
+                   label=_label(p["result"], p["made"], p["fta"], p["ftm"], p["next"]),
+                   timeouts=timeouts, opp_timeouts=opp)  # fmt: skip
+        del row["n"], row["foul_t"]
+        rows.append(row | {k: int(row[k]) for k in ("d0", "delta", "off")})
+    return game, rows
+
+
+def _seconds(clock: str) -> float:
     minutes, secs = re.match(r"PT(\d+)M([\d.]+)S", clock).groups()
     return int(minutes) * 60 + float(secs)
 
 
-def timeouts_left(pbp: pd.DataFrame, nickname: str):
+def _timeouts_left(pbp: pd.DataFrame, nickname: str):
     """A function giving how many timeouts a team has left at a period and clock time, under the
     rules since 2017-18: 7 a game, at most 4 in the 4th quarter and at most 2 in its last 3
     minutes, 2 in each overtime. Timeout rows name the team: "CELTICS Timeout: Regular"."""
     to = pbp[(pbp.actionType == "Timeout") & ~pbp.description.str.contains("Official")]
     mine = to[to.description.str.lower().str.split("timeout").str[0].str.contains(nickname)]
-    period, t = mine.period.to_numpy(), mine.clock.map(seconds).to_numpy()
+    period, t = mine.period.to_numpy(), mine.clock.map(_seconds).to_numpy()
 
     def left(p: int, now: float) -> int:
         before = (period < p) | ((period == p) & (t > now))
@@ -50,7 +84,7 @@ def timeouts_left(pbp: pd.DataFrame, nickname: str):
     return left
 
 
-def scores(pbp: pd.DataFrame) -> pd.DataFrame:
+def _scores(pbp: pd.DataFrame) -> pd.DataFrame:
     """Home and away points after every row. The score is read only from scoring rows (it is
     blank or "0" elsewhere) and carried forward as a running maximum, because a few games have
     scoring rows out of order or a stray "1-0" on a technical free throw."""
@@ -64,7 +98,7 @@ def scores(pbp: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def clean(pbp: pd.DataFrame) -> pd.DataFrame:
+def _clean(pbp: pd.DataFrame) -> pd.DataFrame:
     """Some 2000s games pad the text columns with spaces ("Made Shot      ")."""
     pbp = pbp.copy()
     for col in ["actionType", "subType", "description"]:
@@ -72,7 +106,7 @@ def clean(pbp: pd.DataFrame) -> pd.DataFrame:
     return pbp
 
 
-def home_team(pbp: pd.DataFrame) -> int:
+def _home_team(pbp: pd.DataFrame) -> int:
     """The team whose baskets raise scoreHome. The game log can't say for neutral-site games
     (Paris, Mexico City, the NBA Cup in Las Vegas), where both rows read "away @ home"."""
     made = pbp[pbp.actionType == "Made Shot"]
@@ -80,34 +114,34 @@ def home_team(pbp: pd.DataFrame) -> int:
     return int(made.teamId[raised].mode().iloc[0])
 
 
-def events(pbp: pd.DataFrame, names: dict[int, str]) -> pd.DataFrame:
+def _events(pbp: pd.DataFrame, names: dict[int, str]) -> pd.DataFrame:
     """4th quarter and overtime rows with the clock in seconds, a team for every row that has
     one, and the score after each row."""
     e = pbp.copy()
-    e[["home_pts", "away_pts"]] = scores(pbp)
+    e[["home_pts", "away_pts"]] = _scores(pbp)
     team = e.teamId.where(e.teamId != 0)
     # team rebounds and team turnovers have no teamId, only the nickname in the description
     for team_id, name in names.items():
         named = e.description.str.lower().str.contains(name, regex=False)
         team = team.mask(team.isna() & named, team_id)
     e["team"] = team
-    e["t"] = e.clock.map(seconds)
+    e["t"] = e.clock.map(_seconds)
     e = e[e.period >= 4]
     return e.assign(margin_home=e.home_pts - e.away_pts)[
         ["period", "t", "team", "actionType", "subType", "description", "shotValue", "margin_home"]
     ]
 
 
-def game_possessions(pbp: pd.DataFrame, home: int, away: int, names: dict[int, str]) -> list[dict]:
-    e = events(pbp, names)
+def _game_possessions(pbp: pd.DataFrame, home: int, away: int, names: dict[int, str]) -> list[dict]:
+    e = _events(pbp, names)
     out = []
     for number, period in e.groupby("period", sort=True):
-        possessions = period_possessions(period.itertuples(index=False), home, away)
+        possessions = _period_possessions(period.itertuples(index=False), home, away)
         out += [dict(s, period=int(number)) for s in possessions]
     return out
 
 
-def period_possessions(rows, home: int, away: int) -> list[dict]:
+def _period_possessions(rows, home: int, away: int) -> list[dict]:
     other = {home: away, away: home}
     possessions: list[dict] = []
     poss = None
@@ -278,7 +312,7 @@ def period_possessions(rows, home: int, away: int) -> list[dict]:
     return possessions
 
 
-def label(result: str, made, fta: int, ftm: int, nxt: str) -> str:
+def _label(result: str, made, fta: int, ftm: int, nxt: str) -> str:
     """A plain name for what happened in a possession."""
     if made == 3 or result == "made3":
         return "Made Three"
@@ -303,7 +337,7 @@ def label(result: str, made, fta: int, ftm: int, nxt: str) -> str:
     return "Late Miss, Time Runs Out" if result == "miss" else "Clock Runs Out"
 
 
-def action(poss: dict) -> str:
+def _action(poss: dict) -> str:
     """What the defense did: a stop foul before any shot that sent the offense to the line is
     "foul", one with no free throws is "foul to give", anything else is "defend"."""
     if poss["foul"] is None:
