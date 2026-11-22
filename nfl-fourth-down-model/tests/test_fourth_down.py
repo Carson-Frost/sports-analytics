@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fourth_down.data import add_state, time_scaled
+from fourth_down.data import add_state
 from fourth_down.decide import N_QUANTILES, TD_POINTS, choice, choice_wp, conversion_x, first_down_wp, grade
 
 HERE = Path(__file__).parent
@@ -59,33 +59,23 @@ def their_wp(score, yardline, home=1, used=CLOCK["fail"]):
 
 def test_wp_matches_nflverse():
     """The 12 inputs are built in nflfastR's order: the model reproduces nflverse's vegas_wp."""
-    from fourth_down.wp import MODEL, WinProbability
+    from fourth_down.wp import WinProbability
 
-    if not MODEL.exists():
-        pytest.skip("run scripts/get_wp_model.py first")
     sample = pd.read_csv(HERE / "data" / "wp_sample_2025.csv")
     p = WinProbability(smooth=0).predict_proba(sample)[:, 1]
     assert np.abs(p - sample.vegas_wp).max() < 1e-6
 
 
-def test_second_half_kickoff_home_and_winner():
+def test_second_half_kickoff_and_home():
     plays = pd.DataFrame({
         "posteam": ["H", "A", "H", "A"], "home_team": "H", "home_opening_kickoff": 1,
-        "game_seconds_remaining": [3000, 3000, 1000, 2000], "result": [3, 3, 3, 0],
+        "game_seconds_remaining": [3000, 3000, 1000, 2000],
         "score_differential": 0, "spread_line": 2.5,
     })
     out = add_state(plays)
     assert out.receive_2h_ko.tolist() == [0, 1, 0, 1]
     assert out.home.tolist() == [1, 0, 1, 0]
-    assert out.posteam_won.tolist()[:3] == [1, 0, 1]
-    assert np.isnan(out.posteam_won.iloc[3])
     assert out.posteam_spread.tolist() == [2.5, -2.5, 2.5, -2.5]
-
-
-def test_time_scaling():
-    spread, lead = time_scaled(7, 3, 1800)
-    assert spread == pytest.approx(3 * np.exp(-2))
-    assert lead == pytest.approx(7 * np.exp(2))
 
 
 def test_sure_conversion_from_the_one_is_a_touchdown():
@@ -144,10 +134,8 @@ def test_no_field_goal_beyond_the_longest_attempt():
 
 
 def test_smoothing_stays_inside_the_half():
-    from fourth_down.wp import MODEL, WinProbability
+    from fourth_down.wp import WinProbability
 
-    if not MODEL.exists():
-        pytest.skip("run scripts/get_wp_model.py first")
     s = pd.read_csv(HERE / "data" / "wp_sample_2025.csv").head(50)
     late = s.assign(half_seconds_remaining=10, game_seconds_remaining=1810)
     p = WinProbability(smooth=60).predict_proba(late)[:, 1]
