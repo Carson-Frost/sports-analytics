@@ -167,7 +167,7 @@ def calls(wp, era):
                     fontsize=9, color=MUTED, linespacing=1.1)  # fmt: skip
         for row, (t, r) in enumerate(rows.iterrows()):
             y = top + row
-            call = "Foul" if r.gap_low > 0 else "Defend" if r.gap_high < 0 else "Toss-up"
+            call = r.call.title() if r.clear else "Toss-up"
             better = "foul" if r.foul > r.defend else "defend"
             for k, (_, key) in enumerate(cols):
                 face, text, weight, ink = "#F4F4F1", "", "normal", INK
