@@ -2,8 +2,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from personnel import defensive_backs, grouping, situation
+from personnel import defensive_backs, grouping, prepare_plays, situation
 from personnel.fit import Design
+from personnel.resample import GroupMean, run
 
 
 @pytest.mark.parametrize(
@@ -95,3 +96,83 @@ def test_extra_control_matches_dummy_regression():
                    pd.get_dummies(p.team_season, dtype=float, drop_first=True)], axis=1)
     beta = np.linalg.lstsq(x.to_numpy(), p.epa.to_numpy(), rcond=None)[0]
     assert effect == pytest.approx(beta[0])
+
+
+def test_group_mean_game_weights_equal_repeating_the_games():
+    p = plays(4_000, seed=5)
+    w = np.random.default_rng(6).integers(0, 3, 2_000)
+    weighted = GroupMean(p, "epa", "grouping").fit(w)
+    repeated = p.loc[p.index.repeat(w[p.game_code])]
+    assert weighted.to_dict() == pytest.approx(repeated.groupby("grouping").epa.mean().to_dict())
+
+
+def toy():
+    return pd.DataFrame({"grouping": ["11", "11", "12", "12", "13"], "value": [1.0, 3.0, 10.0, 20.0, 7.0],
+                         "dropback": [1, 0, 1, 1, 0], "game_code": [0, 1, 1, 2, 3]})
+
+
+def test_group_mean_among_a_subset():
+    p = toy()
+    mean = GroupMean(p, "value", "grouping", among=p.dropback == 1).fit()
+    assert mean.to_dict() == {"11": 1.0, "12": 15.0}
+
+
+def test_group_mean_is_nan_for_a_group_missing_from_the_draw():
+    mean = GroupMean(toy(), "value", "grouping").fit(np.array([1, 1, 1, 0]))
+    assert mean["12"] == 15.0
+    assert np.isnan(mean["13"])
+
+
+def test_non_contiguous_seasons_as_groups():
+    p = pd.DataFrame({"season": [2016, 2016, 2019, 2024], "value": [1.0, 2.0, 4.0, 8.0], "game_code": [0, 1, 2, 3]})
+    assert GroupMean(p, "value", "season").fit().to_dict() == {2016: 1.5, 2019: 4.0, 2024: 8.0}
+
+
+def test_runner_is_reproducible_and_fits_every_estimator_on_the_same_draw():
+    p = plays(2_000, seed=7)
+    estimators = {"a": GroupMean(p, "epa", "grouping"), "b": GroupMean(p, "epa", "grouping"),
+                  "design": Design(p, ["11", "12"])}
+    first, again = run(estimators, 2_000, resamples=20, seed=1), run(estimators, 2_000, resamples=20, seed=1)
+    for name in estimators:
+        pd.testing.assert_frame_equal(first[name], again[name])
+    pd.testing.assert_frame_equal(first["a"], first["b"])
+    assert (first["a"].low < first["a"].estimate).all() and (first["a"].estimate < first["a"].high).all()
+    assert list(first["design"].index) == ["12"]
+
+
+class Fixed:
+    def fit(self, game_weights):
+        return pd.Series({"x": 2.0})
+
+
+def test_an_estimator_that_ignores_weights_has_a_collapsed_interval():
+    out = run({"fixed": Fixed()}, 10, resamples=5, seed=0)["fixed"]
+    assert out.loc["x"].to_dict() == {"estimate": 2.0, "low": 2.0, "high": 2.0}
+
+
+def test_a_group_missing_from_some_draws_is_ignored_by_the_interval():
+    out = run({"mean": GroupMean(toy(), "value", "grouping")}, 4, resamples=50, seed=0)["mean"]
+    assert out.loc["13"].to_dict() == {"estimate": 7.0, "low": 7.0, "high": 7.0}
+
+
+def test_preparing_plays_keeps_the_win_probability_window_edges():
+    p = pd.DataFrame({"grouping": "11", "wp": [0.09, 0.10, 0.50, 0.90, 0.91, 0.50], "epa": [0, 0, 0, 0, 0, np.nan]})
+    kept, groupings = prepare_plays(p)
+    assert list(kept.wp) == [0.10, 0.50, 0.90]
+    assert groupings == ["11", "Other"]
+    assert len(prepare_plays(p, window=(0.0, 1.0))[0]) == 5
+
+
+def test_preparing_plays_pools_groupings_under_the_share_into_other():
+    p = pd.DataFrame({"grouping": ["11"] * 197 + ["12"] + ["13"] * 2, "wp": 0.5, "epa": 0.0})  # 12 is 0.5%
+    kept, groupings = prepare_plays(p, min_share=0.01)
+    assert groupings == ["11", "13", "Other"]
+    assert kept.grouping.value_counts().to_dict() == {"11": 197, "13": 2, "Other": 1}
+    assert prepare_plays(p)[1] == ["11", "13", "12", "Other"]  # at 0.5% it keeps its own term
+
+
+def test_preparing_plays_in_a_situation_pools_groupings_under_the_play_count():
+    p = pd.DataFrame({"grouping": ["11"] * 60 + ["22 (6 OL)"] * 50 + ["12"] * 49, "wp": 0.5, "epa": 0.0})
+    kept, groupings = prepare_plays(p, min_share=0, min_plays=50)
+    assert groupings == ["11", "22 (6 OL)", "Other"]
+    assert (kept.grouping == "Other").sum() == 49

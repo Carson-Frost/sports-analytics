@@ -28,7 +28,7 @@ So, is this trend towards heavier personnel packages justified, or are teams ove
   expected points.
 - Each grouping is compared to the same team's 11 personnel plays from that season, on similar downs, distances
   and field position. The Rams' 13 personnel plays, for example, are compared to the Rams' own 11 personnel plays.
-- To see how much of each difference could be luck, the comparison is rerun on 200 random redraws of the games.
+- To see how much of each difference could be luck, the comparison is rerun on 200 random resamples of the games.
   The middle 90% of those reruns is the 90% interval. A difference is called clear when that whole interval is
   above or below zero.
 
@@ -69,7 +69,7 @@ box leaves runs less to overcome, and play-action less to exploit.
 
 Defenses have adjusted to 11 personnel too, mostly by finding ways to take away its passing game. EPA per dropback
 out of 11 personnel fell from +0.082 in 2020 to -0.017 in 2023, before partly
-recovering. This may help explain why other personnel packages, which force the defense to stay sound in the run
+recovering. This may help explain why other groupings, which force the defense to stay sound in the run
 game, have found more efficiency in the pass game, even while giving up some in the run game.
 
 So there is no clean answer to whether the shift toward heavier personnel is justified. More than anything, this

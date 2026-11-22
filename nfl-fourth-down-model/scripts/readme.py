@@ -79,7 +79,6 @@ Optional: `--timeouts`, `--opp-timeouts`, `--spread`, `--home`, `--gets-second-h
 ```bash
 pip install -e ".[dev]"
 python scripts/pull.py
-python scripts/get_wp_model.py
 python scripts/build.py
 python scripts/grade.py      # about an hour
 python scripts/figures.py
