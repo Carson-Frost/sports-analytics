@@ -8,31 +8,54 @@ its charts.
 
 ### [NBA Fouling Up 3](nba-foul-up-3/)
 
-A possession-by-possession model of the last 20 seconds of NBA games, 2021-22 to 2025-26. A team up
-3 should foul with 2 to 5 or 6 seconds left, though it's risky that late, and defend from 14 or 15
-seconds on, depending on whether the trailing team has a timeout. In between, neither choice is
-clearly better. Wins count only at the buzzer. Teams up 3 now foul on about a quarter of these
-possessions, up from 7% in 1996-97.
+A possession-by-possession model of whether a team up 3 in the last 20 seconds of an NBA game
+should foul or defend, 2021-22 to 2025-26.
 
 Python, pandas, numpy, matplotlib
 
 ### [NFL Fourth-Down Decision Model](nfl-fourth-down-model/)
 
 Scores going for it, kicking and punting on every regular-season fourth down from 2015 to 2025,
-using nflfastR's win-probability model. When the model clearly favored going for it, teams went for
-it 27% of the time in 2015 and 54% in 2025. Includes a calculator for any fourth-down situation.
+using nflfastR's win-probability model. Includes a calculator for any fourth-down situation.
 
 Python, pandas, numpy, scikit-learn, xgboost, matplotlib
 
 ### [NFL Personnel Groupings](nfl-personnel-efficiency/)
 
 How often every offense uses each personnel grouping, and the EPA per play of each, from per-play
-personnel on 327,857 regular-season runs and dropbacks, 2016 to 2025. For the same offense in the
-same down, distance and field position, no grouping was clearly more efficient than 11 personnel
-overall. Dropbacks out of 12 personnel gain 0.038 more EPA than dropbacks out of 11 personnel, and
-runs out of 12 personnel gain 0.042 less.
+personnel on regular-season runs and dropbacks, 2016 to 2025.
 
 Python, pandas, numpy, matplotlib
+
+## Layout
+
+Each analysis is one self-contained folder: its own Python package, tests, data pipeline and
+write-up, with nothing shared between folders. Every folder has the same shape:
+
+| Path | Holds |
+| --- | --- |
+| `README.md` | The write-up: question, method, findings, charts, and the exact run steps |
+| `pyproject.toml` | The package, its dependencies and its `dev` extras (pytest, ruff) |
+| `src/` | The analysis code the scripts call |
+| `scripts/` | The pipeline, run in order: `pull.py` downloads the raw data, then the build, analysis and `figures.py` steps, and `readme.py` writes the results into the README |
+| `data/` | Downloaded and derived data; raw data is not committed |
+| `results/` | The tables the analysis writes |
+| `figures/` | The charts |
+| `tests/` | The pytest suite |
+
+`nfl-fourth-down-model/` also has `models/`, the win-probability model that
+`scripts/get_wp_model.py` fetches.
+
+To run an analysis, work inside its folder:
+
+```bash
+cd <analysis>
+pip install -e ".[dev]"
+pytest -q && ruff check .
+```
+
+Then run its `scripts/` in the order its README's "Run it" section gives. Some steps take a long
+time. CI runs `ruff check .` and `pytest -q` in each folder on Python 3.12.
 
 ## Data
 
