@@ -91,7 +91,7 @@ def main():
 
     text = f"""# NFL Personnel Groupings
 
-The NFL seems to be transitioning towards a new era of offense, one that uses heavier personnel packages more
+The NFL seems to be transitioning towards a new era of offense, one that uses heavier groupings more
 frequently. Where does this shift come from and is it justified?
 
 ![How often each 2025 offense used each personnel grouping](figures/teams_2025.png)
@@ -107,7 +107,7 @@ Nearly three quarters of the Other category is groupings with a sixth offensive 
 The impacts of all this were felt in the offseason, where 9 TEs were drafted in the first 95 picks
 ([2026 draft](https://en.wikipedia.org/wiki/2026_NFL_draft)), showing teams' intentions to gain personnel flexibility.
 
-So, is this trend towards heavier personnel packages justified, or are teams overreacting?
+So, is this trend towards heavier groupings justified, or are teams overreacting?
 
 ## Method
 
