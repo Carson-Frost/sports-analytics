@@ -179,7 +179,7 @@ def _fit(possessions: pd.DataFrame, bandwidth: float) -> dict[str, dict]:
 
 class EndGame:
     """The End game fitted from possessions with a window of `bandwidth` (a share of the time
-    left). With `resamples`, each Resample redraws the games with replacement (seeded by `seed`)
+    left). With `resamples`, each Resample draws the games again with replacement (seeded by `seed`)
     and refits both timeout states on that same draw, for 90% intervals."""
 
     def __init__(self, possessions: pd.DataFrame, bandwidth: float, resamples: int = 200,
@@ -223,8 +223,8 @@ class EndGame:
             tables.append(t[in_shown(t.seconds)])
         return pd.concat(tables, ignore_index=True)
 
-    def win_chance(self, margin, seconds, timeouts, opp_timeouts, choice=None) -> np.ndarray:
-        """The chance to win at the buzzer for the team with the ball, ahead by `margin` with
+    def buzzer_win(self, margin, seconds, timeouts, opp_timeouts, choice=None) -> np.ndarray:
+        """The chance of a Buzzer win for the team with the ball, ahead by `margin` with
         `seconds` left, holding `timeouts` against the other team's `opp_timeouts` (arrays or
         scalars). The trailing team's timeouts pick the timeout state; at a tie both states are
         averaged.

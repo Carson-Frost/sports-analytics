@@ -67,7 +67,7 @@ def calibration(possessions: pd.DataFrame, h: float) -> pd.DataFrame:
         return d.assign(bin=np.minimum(d.t0 // 4, 4).astype(int))  # 20.0 joins 16-20
 
     tr, te = states(train), states(test)
-    p_model = end.win_chance(te.d0, te.t0, te.timeouts, te.opp_timeouts)
+    p_model = end.buzzer_win(te.d0, te.t0, te.timeouts, te.opp_timeouts)
     rate = tr.groupby(["d0", "bin"]).won.agg(lambda y: (y.sum() + 1) / (len(y) + 2))
     p_rate = rate.reindex(pd.MultiIndex.from_arrays([te.d0, te.bin])).to_numpy()
     y = te.won.to_numpy(float)
@@ -78,8 +78,8 @@ def calibration(possessions: pd.DataFrame, h: float) -> pd.DataFrame:
 
     rows = [dict(model="Possession model", possessions=len(y), log_loss=loss(p_model),
                  predicted=p_model.mean(), observed=y.mean()),
-            dict(model="Win rate by margin and clock", possessions=len(y), log_loss=loss(p_rate),
-                 predicted=p_rate.mean(), observed=y.mean())]  # fmt: skip
+            dict(model="Share of buzzer wins by margin and clock", possessions=len(y),
+                 log_loss=loss(p_rate), predicted=p_rate.mean(), observed=y.mean())]  # fmt: skip
     return pd.DataFrame(rows)
 
 
@@ -123,7 +123,7 @@ def decision_check(possessions: pd.DataFrame, end: EndGame) -> pd.DataFrame:
     expected, by choice and stretch of the clock, and how often a miss that size happens by
     chance alone."""
     d = shown(down3_possessions(possessions))
-    p = end.win_chance(-3, d.t0, d.timeouts, d.opp_timeouts, choice=d.action)
+    p = end.buzzer_win(-3, d.t0, d.timeouts, d.opp_timeouts, choice=d.action)
     d = d.assign(p=p, band=pd.cut(d.t0, BANDS, right=False))
     rows = []
     for (choice, band), x in d.groupby(["action", "band"], observed=True):

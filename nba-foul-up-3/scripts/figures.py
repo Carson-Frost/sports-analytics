@@ -137,7 +137,7 @@ def calls(wp, era):
     each choice's chances, the difference shaded toward the better choice, and the call."""
     cols = [("Seconds\nleft", None), ("Win", "foul"), ("Overtime", "foul_ot"),
             ("Loss", "foul_loss"), ("Win", "defend"), ("Overtime", "defend_ot"),
-            ("Loss", "defend_loss"), ("Difference\nin Win%", "gap"), ("Call", None)]  # fmt: skip
+            ("Loss", "defend_loss"), ("Buzzer win\ndifference", "gap"), ("Call", None)]  # fmt: skip
     widths = np.array([0.9, 0.8, 0.95, 0.8, 0.8, 0.95, 0.8, 1.1, 1.0])
     x = np.concatenate([[0], np.cumsum(widths)])
     wp = wp[np.isclose(wp.seconds, wp.seconds.round())]
@@ -190,10 +190,9 @@ def calls(wp, era):
                 ax.text((x[k] + x[k + 1]) / 2, y, text, ha="center", va="center", fontsize=9.5,
                         color=ink, fontweight=weight)  # fmt: skip
     titled(fig, "Foul or Defend, by Seconds Left", SOURCE.format(era),
-           units=f"Chances for the team up 3 at the buzzer, {era}. Overtime is not a win. "
-                 "Shaded Win% is the higher one.\n"
-                 "*Very risky this late. Toss-up: the 90% interval of the difference crosses "
-                 "zero.")  # fmt: skip
+           units=f"Chances for the team up 3 at the buzzer, {era}, the likelier buzzer win "
+                 "shaded.\nOvertime is not a win. *Very risky this late. Toss-up: the 90% "
+                 "interval of the difference crosses zero.")  # fmt: skip
     save(fig, F / "calls.png")
 
 

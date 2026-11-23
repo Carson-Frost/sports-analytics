@@ -90,7 +90,7 @@ def test_down_3_the_trailing_teams_timeouts_pick_the_state_the_lookup_reads():
     has, none = (calls.loc[(s, 5.0)] for s in ["has a timeout", "no timeout"])
     has_p, none_p = (r[f"{r.call}_loss"] for r in [has, none])
     assert np.allclose([has_p, none_p], [0, 1])
-    p = end.win_chance(margin=[-3, -3], seconds=[5.0, 5.0], timeouts=[2, 0], opp_timeouts=[0, 2])
+    p = end.buzzer_win(margin=[-3, -3], seconds=[5.0, 5.0], timeouts=[2, 0], opp_timeouts=[0, 2])
     assert np.allclose(p, [has_p, none_p])
 
 
@@ -101,13 +101,13 @@ def test_at_a_tie_the_lookup_averages_both_timeout_states():
     possessions.loc[tied, ["delta", "next"]] = [3, "other"]
     end = EndGame(possessions, H, resamples=0)
     # the team up 3 then always wins with a timeout against it and never wins without one
-    p = end.win_chance(margin=[0, 0], seconds=[5.0, 5.0], timeouts=[2, 0], opp_timeouts=[0, 2])
+    p = end.buzzer_win(margin=[0, 0], seconds=[5.0, 5.0], timeouts=[2, 0], opp_timeouts=[0, 2])
     assert np.allclose(p, 0.5)
 
 
 def test_with_a_choice_the_lookup_gives_the_team_up_3s_chance_under_it():
     end = EndGame(toy(), H, resamples=0)  # fouling wins, defending ties
-    p = end.win_chance(margin=-3, seconds=[5.0, 5.0], timeouts=1, opp_timeouts=2,
+    p = end.buzzer_win(margin=-3, seconds=[5.0, 5.0], timeouts=1, opp_timeouts=2,
                        choice=["foul", "defend"])  # fmt: skip
     assert np.allclose(p, [1, 0])
 
@@ -188,7 +188,7 @@ def test_a_possession_seen_running_out_the_clock_with_time_left_just_uses_its_se
 
     end = EndGame(mixes(outcome), NARROW, resamples=0)
     # from 6 seconds the team up 1 holds to 4, turns it over and loses at the buzzer
-    assert end.win_chance(1, 6.0, 2, 2) == 0
+    assert end.buzzer_win(1, 6.0, 2, 2) == 0
 
 
 def test_a_possession_longer_than_the_time_left_ends_at_the_buzzer():
@@ -212,7 +212,7 @@ def test_a_miss_at_the_buzzer_seen_with_time_left_is_rebounded_at_the_usual_shar
 
     end = EndGame(mixes(outcome), NARROW, resamples=0)
     # from 6 seconds the team down 1 misses, and wins only when it gets the rebound at 4
-    assert np.isclose(end.win_chance(-1, 6.0, 2, 2), 0.25)
+    assert np.isclose(end.buzzer_win(-1, 6.0, 2, 2), 0.25)
 
 
 def test_the_end_game_matches_a_simulation_of_the_same_game():
@@ -252,5 +252,5 @@ def test_the_end_game_matches_a_simulation_of_the_same_game():
         return wins / n
 
     for margin, seconds in [(-3, 6.0), (0, 10.0), (2, 15.0)]:
-        p = end.win_chance(margin, seconds, 1, 1)
+        p = end.buzzer_win(margin, seconds, 1, 1)
         assert abs(simulate(margin, seconds) - p) < 0.012
