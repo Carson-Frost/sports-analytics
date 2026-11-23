@@ -54,7 +54,8 @@ def main():
             "score_differential", "coach", "go", "fg", "punt", "go_edge", "edge_low", "edge_high", "cost", "call",
             "gap", "gap_low", "gap_high", "clear"]
     RESULTS.mkdir(exist_ok=True)
-    f.join(graded)[cols].round(4).to_csv(RESULTS / "graded_fourth_downs.csv.gz", index=False)
+    f.join(graded)[cols].round(4).to_csv(RESULTS / "graded_fourth_downs.csv.gz", index=False,
+                                          compression={"method": "gzip", "mtime": 0})  # same bytes every run
     seasons.round(1).to_csv(RESULTS / "by_season.csv", index=False)
 
     grid = map_grid()
