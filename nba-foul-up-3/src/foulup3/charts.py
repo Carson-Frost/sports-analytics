@@ -17,10 +17,11 @@ GRID = "#E3E3E0"
 TITLE, LABEL, CAPTION = 14, 10, 8.5
 WIDTH, DPI = 7.5, 200
 # Liberation Sans (SIL OFL, Arial's metrics) ships in fonts/, so figures match on every machine
-FONTS = Path(__file__).resolve().parents[2] / "fonts"
+FONT, FONTS = "Liberation Sans", Path(__file__).resolve().parents[2] / "fonts"
+# an installed copy may be another version, so only the vendored one is kept
+font_manager.fontManager.ttflist = [f for f in font_manager.fontManager.ttflist if f.name != FONT]
 for ttf in sorted(FONTS.glob("*.ttf")):
     font_manager.fontManager.addfont(ttf)
-FONT = "Liberation Sans"
 
 plt.rcParams.update({
     "font.family": FONT,
