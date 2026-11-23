@@ -12,7 +12,7 @@ MANIFEST = ROOT / "data" / "manifest.csv"
 
 def check_manifest():
     import hashlib
-    for row in csv.DictReader(MANIFEST.open()):
+    for row in csv.DictReader(MANIFEST.open(encoding="utf-8")):
         path = RAW / f"play_by_play_{row['season']}.parquet"
         if hashlib.sha256(path.read_bytes()).hexdigest() != row["sha256"]:
             raise SystemExit(f"{path.name} differs from data/manifest.csv (downloaded {row['downloaded']}). "

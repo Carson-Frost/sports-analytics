@@ -32,7 +32,7 @@ def main():
     RAW.mkdir(parents=True, exist_ok=True)
     rows = {}
     if MANIFEST.exists():
-        rows = {int(r["season"]): r for r in csv.DictReader(MANIFEST.open())}
+        rows = {int(r["season"]): r for r in csv.DictReader(MANIFEST.open(encoding="utf-8"))}
     for season in args.seasons:
         path = RAW / f"play_by_play_{season}.parquet"
         if not path.exists():
@@ -44,7 +44,7 @@ def main():
         if season not in rows:
             rows[season] = {"season": season, "bytes": path.stat().st_size, "sha256": sha256(path),
                             "downloaded": datetime.date.today().isoformat()}
-    with MANIFEST.open("w", newline="") as f:
+    with MANIFEST.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=["season", "bytes", "sha256", "downloaded"])
         w.writeheader()
         w.writerows(rows[s] for s in sorted(rows))

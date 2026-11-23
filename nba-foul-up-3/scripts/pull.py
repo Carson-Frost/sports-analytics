@@ -40,7 +40,9 @@ def main():
     parser.add_argument("--years", type=int, nargs="+", default=list(range(FIRST + 1, LAST + 2)))
     args = parser.parse_args()
     RAW.mkdir(parents=True, exist_ok=True)
-    rows = {r["file"]: r for r in csv.DictReader(MANIFEST.open())} if MANIFEST.exists() else {}
+    rows = {}
+    if MANIFEST.exists():
+        rows = {r["file"]: r for r in csv.DictReader(MANIFEST.open(encoding="utf-8"))}
     for year in args.years:
         name = f"nba_stats_json_{year}.tar.gz"
         path = RAW / name
@@ -57,7 +59,7 @@ def main():
                 "sha256": sha256(path),
                 "downloaded": datetime.date.today().isoformat(),
             }
-    with MANIFEST.open("w", newline="") as f:
+    with MANIFEST.open("w", newline="", encoding="utf-8") as f:
         fields = ["file", "bytes", "sha256", "downloaded"]
         w = csv.DictWriter(f, fieldnames=fields, lineterminator="\n")
         w.writeheader()

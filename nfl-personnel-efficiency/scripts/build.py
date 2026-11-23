@@ -23,7 +23,7 @@ PARTICIPATION = ["nflverse_game_id", "play_id", "offense_personnel", "defense_pe
 
 
 def check_manifest():
-    for row in csv.DictReader(MANIFEST.open()):
+    for row in csv.DictReader(MANIFEST.open(encoding="utf-8")):
         path = RAW / row["file"]
         if hashlib.sha256(path.read_bytes()).hexdigest() != row["sha256"]:
             raise SystemExit(f"{path.name} differs from data/manifest.csv (downloaded {row['downloaded']}). "

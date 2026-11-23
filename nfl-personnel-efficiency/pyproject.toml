@@ -19,4 +19,6 @@ where = ["src"]
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
+preview = true  # PLW1514 is a preview rule
+explicit-preview-rules = true  # so no other preview rule turns on
+select = ["E", "F", "I", "B", "UP", "PLW1514"]  # PLW1514: text files name their encoding
