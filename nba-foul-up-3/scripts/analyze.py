@@ -78,8 +78,8 @@ def calibration(possessions: pd.DataFrame, h: float) -> pd.DataFrame:
 
     rows = [dict(model="Possession model", possessions=len(y), log_loss=loss(p_model),
                  predicted=p_model.mean(), observed=y.mean()),
-            dict(model="Win rate by margin and clock", possessions=len(y), log_loss=loss(p_rate),
-                 predicted=p_rate.mean(), observed=y.mean())]  # fmt: skip
+            dict(model="Share of buzzer wins by margin and clock", possessions=len(y),
+                 log_loss=loss(p_rate), predicted=p_rate.mean(), observed=y.mean())]  # fmt: skip
     return pd.DataFrame(rows)
 
 

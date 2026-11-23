@@ -94,7 +94,7 @@ def main():
     tree_t = int(leaves.seconds_left.iloc[0])
     assert fouled.share.idxmax() == tree_t, "the tree is no longer where teams foul most"
     cal = pd.read_csv(R / "calibration.csv").set_index("model")
-    model, baseline = cal.loc["Possession model"], cal.loc["Win rate by margin and clock"]
+    model, baseline = cal.loc["Possession model"], cal.loc["Share of buzzer wins by margin and clock"]
     assert abs(model.log_loss - baseline.log_loss) < 0.01, "the calibration sentence no longer holds"
     band = pd.read_csv(R / "bandwidth.csv")
     window = band.bandwidth[band.log_loss.idxmin()]
@@ -123,7 +123,7 @@ Teams up 3 fouled on {pct(overall.iloc[0])}% of these possessions in {seasons[0]
 {pct(mid_then)}% of possessions in {early_years[0]} to {early_years[-1]} to {pct(mid_now)}% in
 {late_years[0]} to {late_years[-1]}.
 
-Raw win rates can't settle whether it works, because teams choose when to foul. In an
+How often teams won can't settle whether it works, because teams choose when to foul. In an
 [ESPN study]({ESPN}) of the last five seasons, teams up 3 with 3 to 17 seconds left won 92.0% of
 the time when they fouled and 91.7% when they defended. So this project builds the end of the
 game one possession at a time.
@@ -149,8 +149,8 @@ game one possession at a time.
   with replacement. A choice is clearly better when the whole interval is on one side of zero.
 - Results stop at 20 seconds, past which there are too few fouls to estimate each second.
 - Fit without {seasons[-2]} and {seasons[-1]}, the model predicted who won at the buzzer on the
-  {int(model.possessions):,} close-game possessions in those seasons about as well as the win rate
-  for the same score and clock.
+  {int(model.possessions):,} close-game possessions in those seasons about as well as the share of
+  buzzer wins at the same score and clock.
 
 ## Results
 

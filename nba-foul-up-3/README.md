@@ -9,7 +9,7 @@ Teams up 3 fouled on 7% of these possessions in 1996-97 and 26% in 2025-26. Most
 with 5 to 10 seconds left: from 11% of possessions in 1996-97 to 2005-06 to 30% in 2016-17 to
 2025-26.
 
-Raw win rates can't settle whether it works, because teams choose when to foul. In an [ESPN
+How often teams won can't settle whether it works, because teams choose when to foul. In an [ESPN
 study](https://www.espn.com/nba/story/_/id/48582233/nba-playoffs-2026-foul-3-san-antonio-spurs-portland-trail-blazers-impact)
 of the last five seasons, teams up 3 with 3 to 17 seconds left won 92.0% of the time when they
 fouled and 91.7% when they defended. So this project builds the end of the game one possession at a
@@ -36,7 +36,8 @@ time.
   replacement. A choice is clearly better when the whole interval is on one side of zero.
 - Results stop at 20 seconds, past which there are too few fouls to estimate each second.
 - Fit without 2024-25 and 2025-26, the model predicted who won at the buzzer on the 1,392 close-game
-  possessions in those seasons about as well as the win rate for the same score and clock.
+  possessions in those seasons about as well as the share of buzzer wins at the same score and
+  clock.
 
 ## Results
 
