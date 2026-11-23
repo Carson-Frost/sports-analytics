@@ -94,7 +94,7 @@ win-probability model from [fastrmodels](https://cran.r-project.org/package=fast
 Method from [nfl4th](https://github.com/nflverse/nfl4th) and
 [Romer (2006)](https://doi.org/10.1086/501171).
 """
-    (ROOT / "README.md").write_text(GENERATED + text)
+    (ROOT / "README.md").write_text(GENERATED + text, encoding="utf-8")
     print(text)
 
 

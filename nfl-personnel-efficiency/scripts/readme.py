@@ -193,7 +193,7 @@ pytest && ruff check .
 [nflverse](https://github.com/nflverse/nflverse-data) play-by-play (CC BY 4.0) and participation, from NFL Next
 Gen Stats for 2016-2022 and FTN Data for 2023-2025 (CC BY-SA 4.0). The results and charts are CC BY-SA 4.0.
 """
-    (ROOT / "README.md").write_text(GENERATED + text)
+    (ROOT / "README.md").write_text(GENERATED + text, encoding="utf-8")
     print(text)
 
 

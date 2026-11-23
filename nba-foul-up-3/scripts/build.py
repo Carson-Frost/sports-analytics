@@ -27,7 +27,7 @@ COLUMNS = ["clock", "period", "teamId", "scoreHome", "scoreAway", "description",
 def check_manifest():
     from pull import sha256  # same folder
 
-    for row in csv.DictReader(MANIFEST.open()):
+    for row in csv.DictReader(MANIFEST.open(encoding="utf-8")):
         path = RAW / row["file"]
         if sha256(path) != row["sha256"]:
             raise SystemExit(

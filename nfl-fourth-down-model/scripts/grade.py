@@ -45,7 +45,7 @@ def map_grid():
 def main():
     plays = pd.read_parquet(PLAYS)
     grader = Grader.fit(WinProbability(), plays[plays.season.between(FIRST_SEASON, LAST_SEASON)])
-    SUBMODELS.write_text(json.dumps(grader.to_json()))
+    SUBMODELS.write_text(json.dumps(grader.to_json()), encoding="utf-8")
 
     f = fourth_downs(plays)
     f = f.assign(coach=choice(f.play_type))

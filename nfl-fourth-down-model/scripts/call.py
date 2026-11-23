@@ -28,7 +28,8 @@ def main():
     p.add_argument("--gets-second-half-kickoff", action="store_true")
     args = p.parse_args()
 
-    grader = Grader.from_json(WinProbability(), json.loads((ROOT / "models" / "submodels.json").read_text()))
+    submodels = json.loads((ROOT / "models" / "submodels.json").read_text(encoding="utf-8"))
+    grader = Grader.from_json(WinProbability(), submodels)
     state = situation(args.distance, args.spot, args.quarter, args.clock, args.score, args.timeouts,
                       args.opp_timeouts, args.spread, args.home, args.gets_second_half_kickoff)
     graded = grader.grade(state).iloc[0]

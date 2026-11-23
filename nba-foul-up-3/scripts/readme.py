@@ -205,7 +205,7 @@ sportsdataverse [hoopR-nba-stats-raw]({HOOPR}) archive (CC BY 4.0). No raw data 
 `scripts/pull.py` downloads it.
 """
     text = wrap(text) + "\n"
-    (ROOT / "README.md").write_text(GENERATED + text)
+    (ROOT / "README.md").write_text(GENERATED + text, encoding="utf-8")
     print(text)
 
 

@@ -33,7 +33,7 @@ def main():
     parser.add_argument("--seasons", type=int, nargs="+", default=list(range(2016, 2026)))
     args = parser.parse_args()
     RAW.mkdir(parents=True, exist_ok=True)
-    rows = {r["file"]: r for r in csv.DictReader(MANIFEST.open())} if MANIFEST.exists() else {}
+    rows = {r["file"]: r for r in csv.DictReader(MANIFEST.open(encoding="utf-8"))} if MANIFEST.exists() else {}
     for season in args.seasons:
         for tag, pattern in FILES.items():
             if tag == "ftn_charting" and season < FTN_FIRST:
@@ -49,7 +49,7 @@ def main():
             if name not in rows:
                 rows[name] = {"file": name, "bytes": path.stat().st_size, "sha256": sha256(path),
                               "downloaded": datetime.date.today().isoformat()}
-    with MANIFEST.open("w", newline="") as f:
+    with MANIFEST.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=["file", "bytes", "sha256", "downloaded"], lineterminator="\n")
         w.writeheader()
         w.writerows(rows[k] for k in sorted(rows))
