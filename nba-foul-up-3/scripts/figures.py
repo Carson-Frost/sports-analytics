@@ -190,10 +190,9 @@ def calls(wp, era):
                 ax.text((x[k] + x[k + 1]) / 2, y, text, ha="center", va="center", fontsize=9.5,
                         color=ink, fontweight=weight)  # fmt: skip
     titled(fig, "Foul or Defend, by Seconds Left", SOURCE.format(era),
-           units=f"Chances for the team up 3 at the buzzer, {era}. Overtime is not a win. "
-                 "The higher Win is shaded.\n"
-                 "*Very risky this late. Toss-up: the 90% interval of the difference crosses "
-                 "zero.")  # fmt: skip
+           units=f"Chances for the team up 3 at the buzzer, {era}, the likelier buzzer win "
+                 "shaded.\nOvertime is not a win. *Very risky this late. Toss-up: the 90% "
+                 "interval of the difference crosses zero.")  # fmt: skip
     save(fig, F / "calls.png")
 
 

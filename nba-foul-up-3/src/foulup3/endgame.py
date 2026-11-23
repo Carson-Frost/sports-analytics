@@ -179,7 +179,7 @@ def _fit(possessions: pd.DataFrame, bandwidth: float) -> dict[str, dict]:
 
 class EndGame:
     """The End game fitted from possessions with a window of `bandwidth` (a share of the time
-    left). With `resamples`, each Resample redraws the games with replacement (seeded by `seed`)
+    left). With `resamples`, each Resample draws the games again with replacement (seeded by `seed`)
     and refits both timeout states on that same draw, for 90% intervals."""
 
     def __init__(self, possessions: pd.DataFrame, bandwidth: float, resamples: int = 200,
