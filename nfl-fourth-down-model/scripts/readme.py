@@ -78,7 +78,7 @@ Optional: `--timeouts`, `--opp-timeouts`, `--spread`, `--home`, `--gets-second-h
 ## Run it
 
 ```bash
-pip install -e ".[dev]"
+pip install -r requirements.lock -e ".[dev]"
 python scripts/pull.py
 python scripts/build.py
 python scripts/grade.py      # about an hour

@@ -189,7 +189,7 @@ where the team up 3 fouled or defended:
 ## Run it
 
 ```bash
-pip install -e ".[dev]"
+pip install -r requirements.lock -e ".[dev]"
 python scripts/pull.py       # will take a long time
 python scripts/build.py      # will take a long time
 python scripts/analyze.py    # will take a long time

@@ -178,7 +178,7 @@ the league.
 ## Run it
 
 ```bash
-pip install -e ".[dev]"
+pip install -r requirements.lock -e ".[dev]"
 python scripts/pull.py
 python scripts/build.py
 python scripts/analyze.py    # will take a long time
