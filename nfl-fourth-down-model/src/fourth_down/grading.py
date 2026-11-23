@@ -75,7 +75,7 @@ class Grader:
         rng = np.random.default_rng(seed)
         games = plays.game_id.unique()
         draws = [pd.Series(rng.choice(games, len(games))).value_counts() for _ in range(resamples)]
-        return cls(model, _fit_submodels(plays), [_fit_submodels(_redraw(plays, d)) for d in draws], draws)
+        return cls(model, _fit_submodels(plays), [_fit_submodels(_resample(plays, d)) for d in draws], draws)
 
     @classmethod
     def from_json(cls, model, saved):
@@ -164,7 +164,7 @@ class Grader:
         return own
 
 
-def _redraw(plays, counts):
+def _resample(plays, counts):
     """The plays of each game repeated as often as it was drawn; a game drawn twice becomes two games."""
     out = plays.loc[plays.index.repeat(plays.game_id.map(counts).fillna(0).astype(int))]
     copy = out.groupby(level=0).cumcount().astype(str)

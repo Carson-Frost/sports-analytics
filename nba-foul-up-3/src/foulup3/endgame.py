@@ -34,7 +34,7 @@ def in_shown(seconds, last: float = SHOWN[1]):
 
 
 def _state_class(margin: int, action: str = "defend") -> str:
-    """Which outcome mix a state draws from. A team up 4 is fouled on most trips and a team up
+    """Which outcome mix a state draws from. A team up 4 is fouled on most possessions and a team up
     15 runs out the clock, so margins are kept apart until the game is out of reach."""
     if margin == -3:
         return "down 3, foul" if action == "foul" else "down 3, defend"
@@ -226,7 +226,7 @@ class EndGame:
     def buzzer_win(self, margin, seconds, timeouts, opp_timeouts, choice=None) -> np.ndarray:
         """The chance of a Buzzer win for the team with the ball, ahead by `margin` with
         `seconds` left, holding `timeouts` against the other team's `opp_timeouts` (arrays or
-        scalars). The trailing team's timeouts pick the timeout state; at a tie both states are
+        scalars). The trailing team's timeouts set the timeout state; at a tie both states are
         averaged.
 
         With `choice` ("foul" or "defend", per state), every state must be down 3, and the

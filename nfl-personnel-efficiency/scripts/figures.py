@@ -78,7 +78,7 @@ def run_pass(e, g):
     axes[0].set_yticks(y, [f"{code} personnel" for code in MAIN], fontweight="bold")
     axes[0].set_ylim(len(MAIN) - 0.5, -0.6)
     margins(fig, top=1.15, left=1.25, right=0.2, bottom=0.85, wspace=0.03)
-    titled(fig, "Run vs. Dropback Efficiency by Personnel Package", SOURCE,
+    titled(fig, "Run vs. Dropback Efficiency by Personnel Grouping", SOURCE,
            units="EPA per play, 2016-2025, for the same offense, down, distance and field position as 11 personnel.\n"
                  "Grey bars and dashed lines: 11 personnel. Lines on bars: 90% intervals.")
     save(fig, F / "run_pass.png")

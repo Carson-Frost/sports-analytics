@@ -100,7 +100,7 @@ def main():
     window = band.bandwidth[band.log_loss.idxmin()]
 
     # the check against real games
-    check = pd.read_csv(R / "decision_check.csv").set_index(["action", "band"])
+    check = pd.read_csv(R / "choice_check.csv").set_index(["action", "band"])
     check = check.reindex([(c, b) for c in ["foul", "defend"]
                            for b in ["1 to 5", "5 to 10", "10 to 20"]])  # fmt: skip
     check_rows = [[c.title(), b, f"{int(r.games)}", f"{int(r.won)}", f"{r.expected:.1f}",

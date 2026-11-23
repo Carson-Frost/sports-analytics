@@ -5,7 +5,7 @@ plays: conversion rates, gains, field goals, punts, kickoffs and clock. Each of 
 games with replacement, refits those, grades every fourth down again and weights the go rate by the
 same draw.
 
-Writes results/graded_fourth_downs.csv.gz, results/by_season.csv, results/recommendation_map.csv and
+Writes results/graded_fourth_downs.csv.gz, results/by_season.csv, results/call_map.csv and
 models/submodels.json (the fitted sub-models, for scripts/call.py).
 """
 
@@ -60,7 +60,7 @@ def main():
 
     grid = map_grid()
     m = grid[["ydstogo", "yardline_100"]].join(grader.grade(grid).drop(columns=["runner_up", "clear_go", "clear_kick"]))
-    m.round(4).to_csv(RESULTS / "recommendation_map.csv", index=False)
+    m.round(4).to_csv(RESULTS / "call_map.csv", index=False)
     print(seasons.round(1).to_string())
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ STOP_FOULS = {
 }
 FT_PATTERN = re.compile(r"(\d) of (\d)")
 TEAM_FOULS = re.compile(r"\.(?:T(\d+)|(PN))\)")  # "(P2.T3)": 3rd team foul, "(P2.PN)": penalty
-BUZZER = 0.5  # a rebound with less than this left ends the trip: there is no time to use it
+BUZZER = 0.5  # a rebound with less than this left ends the possession: there is no time to use it
 LAST_TWO_MINUTES = 120
 TIMEOUT_RULES_FROM = "2017-18"  # 7 a game, at most 4 in the 4th, at most 2 in its last 3 minutes
 MAX_SECONDS = 24  # only possessions that start with 24 seconds or less left in the period
@@ -267,7 +267,7 @@ def _period_possessions(rows, home: int, away: int) -> list[dict]:
             if pd.isna(team) or pending is None:
                 continue  # a rebound with no live miss before it carries no information
             offense = poss["off"]
-            if t < BUZZER:  # the trip ends with the miss: nobody has time to use the rebound
+            if t < BUZZER:  # the possession ends with the miss: nobody has time to use the rebound
                 close(t, pending, "none")
                 start(t, team, "oreb" if team == offense else "change")
             elif team == offense:

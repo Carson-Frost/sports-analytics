@@ -25,7 +25,7 @@ def main():
     example = subprocess.run([sys.executable, ROOT / "scripts" / "call.py", *EXAMPLE],
                              capture_output=True, text=True, check=True).stdout.strip()
 
-    text = f"""# NFL Fourth-Down Decisions
+    text = f"""# NFL Fourth-Down Calls
 
 NFL teams go for it on fourth down far more than they used to: on {rate[first]:.0f}% of fourth downs in
 {first} and {rate[last]:.0f}% in {last}, a shift credited to teams adopting analytics
@@ -52,7 +52,7 @@ down is graded again on 200 resamples of the games. I set the bar for a clear ca
 
 ## Results
 
-![The model's best call by distance and field position](figures/recommendation_map.png)
+![The model's best call by distance and field position](figures/call_map.png)
 
 ## Fourth-Down Calculator
 

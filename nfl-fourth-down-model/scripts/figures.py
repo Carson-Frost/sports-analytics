@@ -44,7 +44,7 @@ def go_rate(seasons):
     save(fig, F / "go_rate.png")
 
 
-def recommendation_map(grid):
+def call_map(grid):
     """The Call in each square: full colour when it's Clear, pale when it's a Toss-up."""
     from matplotlib.patches import Patch
 
@@ -78,7 +78,7 @@ def recommendation_map(grid):
            SOURCE + ". Pale squares: toss-ups.",
            units="Model's best call by yards to go and field position, in a tie game at the start of the 2nd quarter.\n"
                  "Number: win probability gained over the next-best call, in percentage points.")
-    save(fig, F / "recommendation_map.png")
+    save(fig, F / "call_map.png")
 
 
 def main():
@@ -86,7 +86,7 @@ def main():
     ratio = seasons.go_rate.iloc[-1] / seasons.go_rate.iloc[0]
     assert 1.75 <= ratio <= 2.25, f"the go-rate title says twice as often, the data says {ratio:.2f}x"
     go_rate(seasons)
-    recommendation_map(pd.read_csv(R / "recommendation_map.csv"))
+    call_map(pd.read_csv(R / "call_map.csv"))
     print("2 charts ->", F)
 
 
