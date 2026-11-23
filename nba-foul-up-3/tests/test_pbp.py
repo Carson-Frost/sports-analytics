@@ -232,8 +232,8 @@ def test_away_from_play_free_throw_keeps_the_ball():
             ("PT00M00.00S", 4, 0, "", "", "End of 4th Period", "period", "end", 0),
         ]
     )
-    trip = next(s for s in possessions if s["off"] == AWAY and s["t0"] == 10.0)
-    assert (trip["delta"], trip["fta"], trip["result"], trip["action"]) == (
+    possession = next(s for s in possessions if s["off"] == AWAY and s["t0"] == 10.0)
+    assert (possession["delta"], possession["fta"], possession["result"], possession["action"]) == (
         1,
         0,
         "miss dreb",

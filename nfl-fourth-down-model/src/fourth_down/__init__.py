@@ -1,1 +1,1 @@
-"""NFL fourth-down decision model."""
+"""NFL fourth-down calls."""

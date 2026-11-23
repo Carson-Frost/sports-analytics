@@ -1,6 +1,6 @@
 # Sports Analytics
 
-These are my NBA and NFL analyses: end-of-game decisions, fourth-down decisions and offensive
+These are my NBA and NFL analyses: end-of-game choices, fourth-down choices and offensive
 personnel. Each project below is its own folder with its code, a write-up of what I found, and
 its charts.
 
@@ -13,7 +13,7 @@ should foul or defend, 2021-22 to 2025-26.
 
 Python, pandas, numpy, matplotlib
 
-### [NFL Fourth-Down Decision Model](nfl-fourth-down-model/)
+### [NFL Fourth-Down Calls](nfl-fourth-down-model/)
 
 Scores going for it, kicking and punting on every regular-season fourth down from 2015 to 2025,
 using nflfastR's win-probability model. Includes a calculator for any fourth-down situation.

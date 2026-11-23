@@ -3,7 +3,7 @@ timeout left and once for one without, with 200 Resamples for 90% intervals, and
 teams up 3 fouled in every season since 1996-97.
 
 Writes to results/: foul_rate.csv, bandwidth.csv, win_probability.csv, calibration.csv,
-decision_check.csv, tree.csv, foul_share_by_second.csv and counts.csv.
+choice_check.csv, tree.csv, foul_share_by_second.csv and counts.csv.
 """
 
 from pathlib import Path
@@ -118,7 +118,7 @@ def miss_chance(p: np.ndarray, wins: int) -> float:
     return float(dist[np.abs(np.arange(len(dist)) - p.sum()) >= gap - 1e-9].sum())
 
 
-def decision_check(possessions: pd.DataFrame, end: EndGame) -> pd.DataFrame:
+def choice_check(possessions: pd.DataFrame, end: EndGame) -> pd.DataFrame:
     """For the choice each team actually made: wins at the buzzer against the wins the model
     expected, by choice and stretch of the clock, and how often a miss that size happens by
     chance alone."""
@@ -150,7 +150,7 @@ def main():
     end.calls().to_csv(OUT / "win_probability.csv", index=False, float_format="%.4f")
 
     calibration(possessions, h).to_csv(OUT / "calibration.csv", index=False, float_format="%.4f")
-    decision_check(possessions, end).to_csv(OUT / "decision_check.csv", index=False,
+    choice_check(possessions, end).to_csv(OUT / "choice_check.csv", index=False,
                                           float_format="%.4f")  # fmt: skip
     tree(possessions, h).to_csv(OUT / "tree.csv", index=False, float_format="%.4f")
     foul_share_by_second(possessions).to_csv(OUT / "foul_share_by_second.csv", index=False,

@@ -12,7 +12,7 @@ The Rams used 13 personnel on 31% of their plays (44% over their last 12 games, 
 While 11 personnel was still clearly the most used personnel last season, 7 of the top 10 teams in 11 personnel
 usage were in the bottom 10 in efficiency.
 
-Nearly three quarters of the Other category is groupings with a sixth offensive lineman.
+Nearly three quarters of Other is groupings with a sixth offensive lineman.
 
 The impacts of all this were felt in the offseason, where 9 TEs were drafted in the first 95 picks
 ([2026 draft](https://en.wikipedia.org/wiki/2026_NFL_draft)), showing teams' intentions to gain personnel flexibility.

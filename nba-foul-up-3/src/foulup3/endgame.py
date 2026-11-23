@@ -34,7 +34,7 @@ def in_shown(seconds, last: float = SHOWN[1]):
 
 
 def _state_class(margin: int, action: str = "defend") -> str:
-    """Which outcome mix a state draws from. A team up 4 is fouled on most trips and a team up
+    """Which outcome mix a state draws from. A team up 4 is fouled on most possessions and a team up
     15 runs out the clock, so margins are kept apart until the game is out of reach."""
     if margin == -3:
         return "down 3, foul" if action == "foul" else "down 3, defend"

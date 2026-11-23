@@ -1,7 +1,7 @@
 [project]
 name = "fourth-down"
 version = "1.0.0"
-description = "NFL Fourth-Down Decision Model"
+description = "NFL Fourth-Down Calls"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=2.0",
