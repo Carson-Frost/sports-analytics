@@ -36,11 +36,13 @@ write-up, with nothing shared between folders. Every folder has the same shape:
 | --- | --- |
 | `README.md` | The write-up: question, method, findings, charts, and the exact run steps |
 | `pyproject.toml` | The package, its dependencies and its `dev` extras (pytest, ruff) |
+| `requirements.lock` | Every dependency pinned to one version, so results and figures come out the same on any machine |
 | `src/` | The analysis code the scripts call |
 | `scripts/` | The pipeline, run in order: `pull.py` downloads the raw data, then the build, analysis and `figures.py` steps, and `readme.py` writes the results into the README |
 | `data/` | Downloaded and derived data; raw data is not committed |
 | `results/` | The tables the analysis writes |
 | `figures/` | The charts |
+| `fonts/` | Liberation Sans (SIL OFL), the font every chart is drawn in |
 | `tests/` | The pytest suite |
 
 `nfl-fourth-down-model/` also has `models/`, the win-probability model that
@@ -50,7 +52,7 @@ To run an analysis, work inside its folder:
 
 ```bash
 cd <analysis>
-pip install -e ".[dev]"
+pip install -r requirements.lock -e ".[dev]"
 pytest -q && ruff check .
 ```
 
